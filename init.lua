@@ -895,11 +895,12 @@ do
       -- <tab>/<s-tab>: move to right/left of your snippet expansion
       -- <c-space>: Open menu or open docs if already open
       -- <c-n>/<c-p> or <up>/<down>: Select next/previous item
-      -- <c-e>: Hide menu
+      -- <c-e>: Accept the selected suggestion (or the first suggestion)
       -- <c-k>: Toggle signature help
       --
       -- See `:help blink-cmp-config-keymap` for defining your own keymap
       preset = 'default',
+      ['<C-e>'] = { 'select_and_accept', 'fallback' },
 
       -- For more advanced Luasnip keymaps (e.g. selecting choice nodes, expansion) see:
       --    https://github.com/L3MON4D3/LuaSnip?tab=readme-ov-file#keymaps
