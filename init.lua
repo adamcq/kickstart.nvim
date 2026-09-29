@@ -532,6 +532,22 @@ do
   vim.pack.add(telescope_plugins)
 
   -- See `:help telescope` and `:help telescope.setup()`
+  local function symbols_by_position(current, existing)
+    if current.lnum == existing.lnum then
+      return current.col < existing.col
+    end
+    return current.lnum < existing.lnum
+  end
+
+  local function symbols_by_name(current, existing)
+    local current_name = current.symbol_name:lower()
+    local existing_name = existing.symbol_name:lower()
+    if current_name == existing_name then
+      return symbols_by_position(current, existing)
+    end
+    return current_name < existing_name
+  end
+
   require('telescope').setup {
     -- You can put your default mappings / updates / etc. in here
     --  All the info you're looking for is in `:help telescope.setup()`
@@ -541,7 +557,33 @@ do
     --     i = { ['<c-enter>'] = 'to_fuzzy_refine' },
     --   },
     -- },
-    -- pickers = {}
+    pickers = {
+      lsp_document_symbols = {
+        sorting_strategy = 'ascending',
+        tiebreak = symbols_by_position,
+        attach_mappings = function(prompt_bufnr, map)
+          local picker = require('telescope.actions.state').get_current_picker(prompt_bufnr)
+          local original_score = picker.sorter.scoring_function
+          picker.sorter.scoring_function = function(sorter, prompt, entry, ...)
+            if prompt == '' then
+              return 0.5 -- Telescope only applies the tie breaker to scores below 1.
+            end
+            return original_score(sorter, prompt, entry, ...)
+          end
+
+          local alphabetical = false
+          local function toggle_symbol_order()
+            alphabetical = not alphabetical
+            picker.tiebreak = alphabetical and symbols_by_name or symbols_by_position
+            picker:refresh()
+          end
+
+          -- In gO, Ctrl+O switches between file order and alphabetical order.
+          map({ 'i', 'n' }, '<C-o>', toggle_symbol_order)
+          return true
+        end,
+      },
+    },
     extensions = {
       ['ui-select'] = { require('telescope.themes').get_dropdown() },
     },
