@@ -578,8 +578,8 @@ do
             picker:refresh()
           end
 
-          -- In gO, Ctrl+O switches between file order and alphabetical order.
-          map({ 'i', 'n' }, '<C-o>', toggle_symbol_order)
+          -- In gO, Alt+O switches between file order and alphabetical order.
+          map({ 'i', 'n' }, '<M-o>', toggle_symbol_order, { desc = 'Toggle symbol order' })
           return true
         end,
       },
