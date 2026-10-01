@@ -1007,7 +1007,10 @@ do
 
   -- Render Markdown directly in Neovim, with raw text shown while editing.
   vim.pack.add { gh 'MeanderingProgrammer/render-markdown.nvim' }
-  require('render-markdown').setup {}
+  require('render-markdown').setup {
+    -- Keep embedded snippets (such as Omega commands in HTML comments) visible.
+    html = { comment = { conceal = false } },
+  }
 
   ---@param buf integer
   ---@param language string
