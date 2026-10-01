@@ -427,15 +427,23 @@ do
   vim.pack.add { gh 'folke/tokyonight.nvim' }
   ---@diagnostic disable-next-line: missing-fields
   require('tokyonight').setup {
+    style = 'night',
+    light_style = 'day',
     styles = {
       comments = { italic = false }, -- Disable italics in comments
     },
   }
 
-  -- Load the colorscheme here.
-  -- Like many other themes, this one has different styles, and you could load
-  -- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
-  vim.cmd.colorscheme 'tokyonight-night'
+  -- Follow the terminal background: Day in light mode, Night in dark mode.
+  -- Neovim detects Ghostty's background; do not force a specific variant here.
+  vim.cmd.colorscheme 'tokyonight'
+  vim.api.nvim_create_autocmd('OptionSet', {
+    group = vim.api.nvim_create_augroup('terminal-theme', { clear = true }),
+    pattern = 'background',
+    callback = function()
+      vim.cmd.colorscheme 'tokyonight'
+    end,
+  })
 
   -- Highlight todo, notes, etc in comments
   vim.pack.add { gh 'folke/todo-comments.nvim' }
