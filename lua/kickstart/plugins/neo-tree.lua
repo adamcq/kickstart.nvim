@@ -11,6 +11,7 @@ vim.keymap.set('n', '\\', '<Cmd>Neotree reveal<CR>', { desc = 'NeoTree reveal', 
 
 require('neo-tree').setup {
   filesystem = {
+    hijack_netrw_behavior = 'disabled', -- Open the side pane only when requested with \.
     window = {
       mappings = {
         ['\\'] = 'close_window',
