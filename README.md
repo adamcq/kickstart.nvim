@@ -10,6 +10,129 @@ A starting point for Neovim that is:
 
 **NOT** a Neovim distribution, but instead a starting point for your configuration.
 
+## Java development
+
+Java support lives in `lua/custom/java.lua`, loaded by `init.lua`. Mason installs
+**JDTLS v1.61.0**. The checked-in `nvim-pack-lock.json` pins Neovim plugins,
+including `nvim-jdtls`; keep it when cloning or copying this configuration.
+
+### Reproduce after cloning
+
+1. Clone this repo into `~/.config/nvim`, including its lockfile. Use **Neovim
+   0.12.5** (the tested version), Git, Python **3.9+**, and a JDK containing
+   `bin/java`, `release`, and `lib/src.zip`. Continuum requires **JDK 25**.
+   Follow the external dependency instructions below for the rest of the config.
+2. Set `JAVA_HOME` before starting Neovim. For Continuum, use the JDK supplied by
+   its development environment. Check `"$JAVA_HOME/bin/java" -version` and
+   `test -f "$JAVA_HOME/lib/src.zip"`. The config reads your environment rather
+   than hardcoding a checkout-specific JDK installation path.
+3. In the Continuum checkout, run `./gradlew --version` once to cache its wrapper
+   distribution. Included builds without a wrapper (such as `build-logic`) use
+   this same cached distribution instead of Buildship's older default Gradle.
+4. Start `nvim` and let plugin and Mason installation finish. `vim.pack` installs
+   the revisions in the lockfile. In `:Mason`, verify `jdtls` is installed; if
+   necessary run `:MasonInstall jdtls@v1.61.0`. Restart after the first installation.
+5. Open a Java file anywhere in Continuum. Let Fidget's import/indexing progress
+   finish, then run `:JavaWorkspaceWarmup` once. It refreshes Gradle configuration
+   and fully builds the Java workspace with Eclipse's compiler. It does not run
+   distribution/native builds, start databases, or execute Omega tests.
+6. Use `:JavaWorkspaceInfo` to check the root, JDK, source archive, cache, and logs.
+   Warmup reports completion or errors; compiler diagnostics appear in quickfix.
+   Build errors can coexist with usable navigation.
+
+JDTLS uses the repository's Gradle wrapper and imports the enclosing multi-project
+repository, including nested test and benchmark modules. Configuration updates,
+annotation processing, and incremental Java builds are automatic. Generated
+roots come from the build model rather than scanning every build directory.
+JDK navigation uses `src.zip`. Dependencies open published sources when available
+and can use decompiled contents otherwise.
+
+Completion capabilities come from the existing Blink global LSP setup. Java adds
+signature help, hover documentation, code actions, and refactorings. Formatting
+keeps Conform's existing LSP fallback; organizing imports remains explicit.
+
+### Keys and commands
+
+| Key / command | Behavior |
+| --- | --- |
+| `grd` / `grD` | Definition / declaration, including JDK and dependency sources |
+| `grr` | References across imported modules, including unopened files |
+| `gri` / `grt` | Implementations / type definition |
+| `K` / insert-mode `<C-k>` | Hover documentation / Blink signature-help toggle |
+| `gra` / `grn` | Code actions / rename |
+| `<leader>jo` | Organize Java imports |
+| `<leader>jv` / `<leader>jc` | Extract variable / constant, normal or visual mode |
+| Visual-mode `<leader>jm` | Extract method |
+| `:JavaWorkspaceWarmup` | Refresh Gradle and fully rebuild the Java workspace |
+| `:JavaWorkspaceRefresh` | Request configuration refresh without a full rebuild |
+| `:JavaWorkspaceInfo` | Runtime, root, cache, client, warmup status, and logs |
+| `:JdtRestart` / `:JdtShowLogs` | Restart Java support / open Java logs |
+
+Annotations such as `FunctionalInterface` normally have no implementations;
+definitions and references should work. Micronaut injection through annotations,
+configuration, or generated beans is not necessarily an ordinary Java reference.
+Framework bean browsing, debugging, and test runners are outside this setup.
+
+### Cache and recovery
+
+The existing `/home/opc/dev/graal-continuum` cache stays at
+`~/.cache/nvim/jdtls/workspace/graal-continuum`. Other checkouts use a basename
+and hash of their canonical root path. A session reuses one client per project;
+restarts reuse saved indexes and perform startup/change checks. Warmup on every
+file open is unnecessary. Caches and downloaded sources are recreated from this
+configuration and remain machine-local.
+
+The maximum Java server heap is 2 GiB. `JDTLS_JVM_ARGS` can add JVM arguments or
+override that limit. On Linux, `lslocks` detects a workspace held by another
+editor before launch; Eclipse also enforces its workspace lock. Close the other
+editor before using the same workspace. A leftover lock file alone is not a live
+lock. Never delete indexes while their server is running.
+
+After dependency changes or branch switches, use `:JavaWorkspaceRefresh` or
+`:JdtRestart` if automatic refresh has not caught up. Inspect quickfix and
+`:JdtShowLogs` for classpath/compiler/processor failures; do not disable all
+annotation processing to hide them. Historical Continuum logs contained a
+`DocSnippetProcessor` error on a documentation `capture-isolate-id` attribute;
+refreshing and rebuilding determines whether it persists in the current checkout.
+
+The full workspace build reproduced that documentation error. It also found
+that Continuum's `SavedAnnotationProcessor` uses javac internals, whereas JDTLS
+builds with Eclipse's compiler. Some Micronaut test apps therefore cannot build
+successfully inside JDTLS, even though ordinary Micronaut source navigation works.
+Use their Gradle compilation for authoritative results. This configuration keeps
+processors enabled and reports those failures; it does not modify Continuum's
+processors or hide errors by disabling annotation processing globally.
+
+For an actually corrupt workspace, `:JdtWipeDataAndRestart` is the plugin's
+explicit, confirmation-based recovery command. The config never erases caches
+automatically. A new machine or checkout path needs an initial import/indexing
+pass. Upgrade JDTLS deliberately by changing its version in `init.lua`; review
+and save lockfile changes after `vim.pack.update()`.
+
+### Verify navigation
+
+With no other editor using Continuum's workspace, run from this config repo:
+
+```sh
+nvim --headless -i NONE -c 'luafile scripts/check-java.lua'
+```
+
+To use a different checkout and fully warm it before checking:
+
+```sh
+JAVA_CHECK_ROOT=/path/to/graal-continuum JAVA_CHECK_WARMUP=1 \
+  nvim --headless -i NONE -c 'luafile scripts/check-java.lua'
+```
+
+The script uses the real config and repository sources to check JDK/Micronaut
+definition buffers, references from dependency buffers, references across
+Continuum modules, implementations, and client reuse. It never saves source
+edits. It also requests rename, import organization, extraction, and formatting
+edits without applying them. Run it twice to compare first-run and cached
+readiness; elapsed times are printed. Warmup errors are reported separately from
+navigation results.
+Dependency downloads may require the normal Continuum repository credentials.
+
 ## Installation
 
 ### Install Neovim

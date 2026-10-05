@@ -834,6 +834,7 @@ do
 
   vim.pack.add {
     gh 'neovim/nvim-lspconfig',
+    gh 'mfussenegger/nvim-jdtls',
     gh 'mason-org/mason.nvim',
     gh 'mason-org/mason-lspconfig.nvim',
     gh 'WhoIsSethDaniel/mason-tool-installer.nvim',
@@ -855,11 +856,16 @@ do
   --
   -- You can press `g?` for help in this menu.
   local ensure_installed = vim.tbl_keys(servers or {})
+  for index, name in ipairs(ensure_installed) do
+    if name == 'jdtls' then ensure_installed[index] = { 'jdtls', version = 'v1.61.0' } end
+  end
   vim.list_extend(ensure_installed, {
     -- You can add other tools here that you want Mason to install
   })
 
   require('mason-tool-installer').setup { ensure_installed = ensure_installed }
+
+  servers.jdtls = require('custom.java').setup()
 
   for name, server in pairs(servers) do
     vim.lsp.config(name, server)
