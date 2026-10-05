@@ -455,6 +455,21 @@ do
   vim.pack.add { gh 'nvim-mini/mini.nvim' }
   require('custom.sessions').setup()
 
+  -- Animate keyboard paging only; mouse scrolling stays native.
+  vim.pack.add { gh 'karb94/neoscroll.nvim' }
+  local neoscroll = require 'neoscroll'
+  neoscroll.setup { mappings = {}, hide_cursor = false, ignored_events = {} }
+  for key, action in pairs { ['<C-f>'] = 'ctrl_f', ['<C-d>'] = 'ctrl_d', ['<C-u>'] = 'ctrl_u', ['<C-b>'] = 'ctrl_b' } do
+    vim.keymap.set({ 'n', 'x' }, key, function() neoscroll[action] { duration = 120 } end, { desc = 'Scroll with a brief animation' })
+  end
+
+  -- Stop a keyboard animation before processing a native mouse-wheel event.
+  -- neoscroll exposes its running timer through this module (pinned in the lockfile).
+  local scroll = require 'neoscroll.scroll'
+  vim.on_key(function(key)
+    if scroll.scrolling and vim.fn.keytrans(key):find('ScrollWheel', 1, true) then scroll:tear_down() end
+  end, vim.api.nvim_create_namespace 'keyboard-scroll-animation')
+
   -- If a nerd font is available, load the icons module for pretty icons in various plugins.
   if vim.g.have_nerd_font then
     require('mini.icons').setup()
