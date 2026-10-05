@@ -167,6 +167,29 @@ function M.info()
   vim.api.nvim_echo({ { table.concat(lines, '\n') } }, true, {})
 end
 
+function M.restore_library_sources()
+  local restored = {}
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    local buf = vim.api.nvim_win_get_buf(win)
+    local uri = vim.api.nvim_buf_get_name(buf)
+    if uri:match '^jdt://' and not restored[buf] then
+      restored[buf] = true
+      vim.api.nvim_win_call(win, function()
+        local root = M.root(vim.fn.getcwd())
+        if not root then
+          notify('Cannot restore library source outside a Java project.', vim.log.levels.WARN)
+          return
+        end
+        local ok, err = pcall(function()
+          local config = vim.tbl_extend('force', vim.lsp.config.jdtls, { root_dir = root })
+          if vim.lsp.start(config, { bufnr = buf }) then require('jdtls').open_classfile(buf, uri) end
+        end)
+        if not ok then notify('Could not restore library source: ' .. tostring(err), vim.log.levels.WARN) end
+      end)
+    end
+  end
+end
+
 function M.setup()
   local jdtls = require 'jdtls' -- Registers Java code-action command handlers.
   jdtls.settings.jdt_uri_timeout_ms = 30000 -- Allow a first dependency-source download.
