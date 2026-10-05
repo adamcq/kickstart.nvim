@@ -558,6 +558,8 @@ do
     return current_name < existing_name
   end
 
+  local make_symbol_entry = require('telescope.make_entry').gen_from_lsp_symbols { path_display = { 'hidden' } }
+
   require('telescope').setup {
     -- You can put your default mappings / updates / etc. in here
     --  All the info you're looking for is in `:help telescope.setup()`
@@ -571,6 +573,12 @@ do
       lsp_document_symbols = {
         sorting_strategy = 'ascending',
         tiebreak = symbols_by_position,
+        entry_maker = function(symbol)
+          local entry = make_symbol_entry(symbol)
+          -- Keep the source buffer so the previewer can read virtual Java sources (jdt://).
+          entry.bufnr = symbol.bufnr
+          return entry
+        end,
         attach_mappings = function(prompt_bufnr, map)
           local picker = require('telescope.actions.state').get_current_picker(prompt_bufnr)
           local original_score = picker.sorter.scoring_function
