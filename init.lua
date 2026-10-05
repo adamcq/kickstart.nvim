@@ -508,7 +508,7 @@ do
 
   -- Show the total line count at the bottom right.
   ---@diagnostic disable-next-line: duplicate-set-field
-  statusline.section_location = function() return '%L lines' end
+  statusline.section_location = function() return '%LL' end
 
   -- ... and there is more!
   --  Check out: https://github.com/nvim-mini/mini.nvim
