@@ -434,9 +434,9 @@ do
     },
   }
 
-  -- Follow the terminal background with GitHub's light/dark high-contrast themes.
+  -- Follow the terminal background with GitHub's light/dark default themes.
   local function apply_terminal_theme()
-    vim.cmd.colorscheme('github_' .. vim.o.background .. '_high_contrast')
+    vim.cmd.colorscheme('github_' .. vim.o.background .. '_default')
   end
   apply_terminal_theme()
   vim.api.nvim_create_autocmd('OptionSet', {
