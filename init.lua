@@ -425,25 +425,24 @@ do
   -- change the command under that to load whatever the name of that colorscheme is.
   --
   -- If you want to see what colorschemes are already installed, you can use `:Telescope colorscheme`.
-  vim.pack.add { gh 'folke/tokyonight.nvim' }
-  ---@diagnostic disable-next-line: missing-fields
-  require('tokyonight').setup {
-    style = 'night',
-    light_style = 'day',
-    styles = {
-      comments = { italic = false }, -- Disable italics in comments
+  vim.pack.add { gh 'projekt0n/github-nvim-theme' }
+  require('github-theme').setup {
+    options = {
+      styles = {
+        comments = 'NONE', -- Disable italics in comments
+      },
     },
   }
 
-  -- Follow the terminal background: Day in light mode, Night in dark mode.
-  -- Neovim detects Ghostty's background; do not force a specific variant here.
-  vim.cmd.colorscheme 'tokyonight'
+  -- Follow the terminal background with GitHub's light/dark high-contrast themes.
+  local function apply_terminal_theme()
+    vim.cmd.colorscheme('github_' .. vim.o.background .. '_high_contrast')
+  end
+  apply_terminal_theme()
   vim.api.nvim_create_autocmd('OptionSet', {
     group = vim.api.nvim_create_augroup('terminal-theme', { clear = true }),
     pattern = 'background',
-    callback = function()
-      vim.cmd.colorscheme 'tokyonight'
-    end,
+    callback = apply_terminal_theme,
   })
 
   -- Highlight todo, notes, etc in comments
