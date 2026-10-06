@@ -581,8 +581,8 @@ do
         tiebreak = symbols_by_position,
         entry_maker = function(symbol)
           local entry = make_symbol_entry(symbol)
-          -- Keep the source buffer so the previewer can read virtual Java sources (jdt://).
-          entry.bufnr = symbol.bufnr
+          -- Symbol results may omit bufnr; resolve the filename without treating jdt:// as a disk path.
+          entry.bufnr = vim.fn.bufadd(symbol.filename)
           return entry
         end,
         attach_mappings = function(prompt_bufnr, map)
