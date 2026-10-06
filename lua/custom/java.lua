@@ -2,6 +2,9 @@
 local M = {}
 local workspaces = {}
 local continuum = '/home/opc/dev/graal-continuum'
+local serial_gradle_import_roots = {
+  ['/home/opc/dev/graalflow/dthreads'] = true,
+}
 
 local function notify(message, level) vim.notify('Java: ' .. message, level or vim.log.levels.INFO) end
 
@@ -246,6 +249,14 @@ function M.setup()
       }
       config.settings.java.import.gradle.java = { home = jdk.home }
       local gradle = configure_gradle(config.root_dir, config.settings.java.import.gradle)
+      if serial_gradle_import_roots[config.root_dir] then
+        -- JDTLS's annotation-processor model needs serial Gradle imports on affected builds.
+        -- Copy settings so this project's workaround cannot leak into another client.
+        config.settings = vim.deepcopy(config.settings)
+        local gradle_settings = config.settings.java.import.gradle
+        local existing = gradle_settings.jvmArguments or ''
+        gradle_settings.jvmArguments = (existing ~= '' and (existing .. ' ') or '') .. '-Dorg.gradle.parallel=false'
+      end
       -- JDTLS starts importing during initialize, before didChangeConfiguration.
       config.init_options.settings = config.settings
       workspaces[config.root_dir] = { jdk = jdk, gradle = gradle, status = 'Starting; watch Fidget for import and indexing progress' }

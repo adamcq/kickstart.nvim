@@ -57,6 +57,14 @@ roots come from the build model rather than scanning every build directory.
 JDK navigation uses `src.zip`. Dependencies open published sources when available
 and can use decompiled contents otherwise.
 
+For `/home/opc/dev/graalflow/dthreads`, JDTLS passes
+`-Dorg.gradle.parallel=false` to Gradle during imports to avoid the
+[Gradle 9 annotation-processor model locking bug](https://github.com/eclipse-jdtls/eclipse.jdt.ls/issues/3807).
+Annotation processing stays enabled; terminal Gradle builds are unaffected.
+To extend this workaround, add roots to `serial_gradle_import_roots` in
+`lua/custom/java.lua`, or apply the argument unconditionally for all projects
+if slower imports are acceptable.
+
 Completion capabilities come from the existing Blink global LSP setup. Java adds
 signature help, hover documentation, code actions, and refactorings. Formatting
 keeps Conform's existing LSP fallback; organizing imports remains explicit.
