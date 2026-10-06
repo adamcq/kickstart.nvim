@@ -565,6 +565,17 @@ do
   end
 
   local make_symbol_entry = require('telescope.make_entry').gen_from_lsp_symbols { path_display = { 'hidden' } }
+  local make_quickfix_entry = require('telescope.make_entry').gen_from_quickfix()
+  local function make_location_entry(location)
+    local buf = vim.fn.bufadd(location.filename)
+    if location.filename:match '^jdt://' then
+      vim.fn.bufload(buf)
+      location.text = vim.api.nvim_buf_get_lines(buf, location.lnum - 1, location.lnum, false)[1] or location.text
+    end
+    local entry = make_quickfix_entry(location)
+    entry.bufnr = buf
+    return entry
+  end
 
   require('telescope').setup {
     -- You can put your default mappings / updates / etc. in here
@@ -576,6 +587,10 @@ do
     --   },
     -- },
     pickers = {
+      lsp_implementations = { entry_maker = make_location_entry },
+      lsp_references = { entry_maker = make_location_entry },
+      lsp_definitions = { entry_maker = make_location_entry },
+      lsp_type_definitions = { entry_maker = make_location_entry },
       lsp_document_symbols = {
         sorting_strategy = 'ascending',
         tiebreak = symbols_by_position,
