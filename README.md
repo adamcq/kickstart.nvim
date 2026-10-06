@@ -10,6 +10,16 @@ A starting point for Neovim that is:
 
 **NOT** a Neovim distribution, but instead a starting point for your configuration.
 
+## Sticky scroll
+
+Tree-sitter context keeps enclosing class, method, and block headers at the top
+of the window as you scroll. It follows the top visible line and shows up to four
+context lines, updating as you scroll past each scope. It works in languages with
+an installed parser and context queries, including Java and Lua.
+
+Use `<leader>tc` (Space, t, c) or `:TSContext toggle` to toggle it for the current
+Neovim session.
+
 ## Java development
 
 Java support lives in `lua/custom/java.lua`, loaded by `init.lua`. Mason installs

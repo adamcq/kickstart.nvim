@@ -1042,6 +1042,14 @@ do
   local parsers = { 'bash', 'c', 'diff', 'html', 'java', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' }
   require('nvim-treesitter').install(parsers)
 
+  -- Keep enclosing class/method headers visible while scrolling their bodies.
+  vim.pack.add { gh 'nvim-treesitter/nvim-treesitter-context' }
+  require('treesitter-context').setup {
+    max_lines = 4,
+    mode = 'topline',
+  }
+  vim.keymap.set('n', '<leader>tc', '<cmd>TSContext toggle<CR>', { desc = '[T]oggle sticky [C]ontext' })
+
   -- Render Markdown directly in Neovim, with raw text shown while editing.
   vim.pack.add { gh 'MeanderingProgrammer/render-markdown.nvim' }
   require('render-markdown').setup {
