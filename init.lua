@@ -564,7 +564,10 @@ do
     return current_name < existing_name
   end
 
-  local make_symbol_entry = require('telescope.make_entry').gen_from_lsp_symbols { path_display = { 'hidden' } }
+  local telescope_custom = require 'custom.telescope'
+  local telescope_actions = require 'telescope.actions'
+  telescope_custom.setup()
+  local make_symbol_entry = telescope_custom.symbol_entry_maker { path_display = { 'hidden' } }
   local make_quickfix_entry = require('telescope.make_entry').gen_from_quickfix()
   local function make_location_entry(location)
     local buf = vim.fn.bufadd(location.filename)
@@ -581,25 +584,50 @@ do
     -- You can put your default mappings / updates / etc. in here
     --  All the info you're looking for is in `:help telescope.setup()`
     --
-    -- defaults = {
-    --   mappings = {
-    --     i = { ['<c-enter>'] = 'to_fuzzy_refine' },
-    --   },
-    -- },
+    defaults = {
+      mappings = {
+        i = {
+          ['<M-f>'] = false,
+          ['<M-k>'] = false,
+          ['<M-q>'] = false,
+          ['<C-g>'] = { telescope_custom.toggle_results_wrap, type = 'action', opts = { desc = 'Toggle results wrap (left)' } },
+          ['<C-b>'] = { telescope_custom.toggle_preview_wrap, type = 'action', opts = { desc = 'Toggle preview wrap (right)' } },
+        },
+        n = {
+          ['<M-f>'] = false,
+          ['<M-k>'] = false,
+          ['<M-q>'] = false,
+          ['h'] = { telescope_actions.results_scrolling_left, type = 'action', opts = { desc = 'Scroll results left' } },
+          ['l'] = { telescope_actions.results_scrolling_right, type = 'action', opts = { desc = 'Scroll results right' } },
+          ['q'] = {
+            telescope_actions.send_selected_to_qflist + telescope_actions.open_qflist,
+            type = 'action',
+            opts = { desc = 'Send selected results to quickfix' },
+          },
+          ['<C-g>'] = { telescope_custom.toggle_results_wrap, type = 'action', opts = { desc = 'Toggle results wrap (left)' } },
+          ['<C-b>'] = { telescope_custom.toggle_preview_wrap, type = 'action', opts = { desc = 'Toggle preview wrap (right)' } },
+        },
+      },
+    },
     pickers = {
+      buffers = {
+        attach_mappings = function(prompt_bufnr, map)
+          -- This picker installs Alt+D before user mappings run.
+          vim.keymap.del({ 'i', 'n' }, '<M-d>', { buffer = prompt_bufnr })
+          map('n', 'd', telescope_actions.delete_buffer, { desc = 'Delete selected buffer' })
+          return true
+        end,
+      },
       lsp_implementations = { entry_maker = make_location_entry },
       lsp_references = { entry_maker = make_location_entry },
       lsp_definitions = { entry_maker = make_location_entry },
       lsp_type_definitions = { entry_maker = make_location_entry },
+      lsp_workspace_symbols = { entry_maker = telescope_custom.symbol_entry_maker() },
+      lsp_dynamic_workspace_symbols = { entry_maker = telescope_custom.symbol_entry_maker() },
       lsp_document_symbols = {
         sorting_strategy = 'ascending',
         tiebreak = symbols_by_position,
-        entry_maker = function(symbol)
-          local entry = make_symbol_entry(symbol)
-          -- Symbol results may omit bufnr; resolve the filename without treating jdt:// as a disk path.
-          entry.bufnr = vim.fn.bufadd(symbol.filename)
-          return entry
-        end,
+        entry_maker = make_symbol_entry,
         attach_mappings = function(prompt_bufnr, map)
           local picker = require('telescope.actions.state').get_current_picker(prompt_bufnr)
           local original_score = picker.sorter.scoring_function
@@ -617,8 +645,8 @@ do
             picker:refresh()
           end
 
-          -- In gO, Alt+O switches between file order and alphabetical order.
-          map({ 'i', 'n' }, '<M-o>', toggle_symbol_order, { desc = 'Toggle symbol order' })
+          -- In gO, Esc then o switches between file order and alphabetical order.
+          map('n', 'o', toggle_symbol_order, { desc = 'Toggle symbol order' })
           return true
         end,
       },
