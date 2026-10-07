@@ -28,6 +28,8 @@ function M.setup()
         local picker = state.get_status(prompt_bufnr).picker
         local win = picker and picker.preview_win
         if win and vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == event.buf then
+          vim.wo[win].number = true
+          vim.wo[win].relativenumber = false
           if picker._custom_preview_wrap ~= nil then vim.wo[win].wrap = picker._custom_preview_wrap end
         end
       end
