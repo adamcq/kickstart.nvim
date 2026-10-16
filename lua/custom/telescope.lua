@@ -1,5 +1,14 @@
 local M = {}
 
+local function path_highlights(path)
+  local filename = path:match '[^/\\]+$' or ''
+  local start = #path - #filename
+  local styles = {}
+  if start > 0 then styles[#styles + 1] = { { 0, start }, 'Comment' } end
+  if #filename > 0 then styles[#styles + 1] = { { start, #path }, 'CustomTelescopeFilename' } end
+  return styles
+end
+
 local function toggle_wrap(prompt_bufnr, pane)
   local picker = require('telescope.actions.state').get_current_picker(prompt_bufnr)
   local win = picker[pane .. '_win']
@@ -27,6 +36,42 @@ function M.toggle_results_wrap(prompt_bufnr) toggle_wrap(prompt_bufnr, 'results'
 function M.toggle_preview_wrap(prompt_bufnr) toggle_wrap(prompt_bufnr, 'preview') end
 
 function M.setup()
+  -- Neovim's default extmark priority can put Telescope's selection above its
+  -- entry colors. Keep the selection background below filenames and snippets.
+  local highlighter = getmetatable(require('telescope.pickers.highlights').new({}))
+  if not highlighter._custom_selection_priority then
+    local hi_selection = highlighter.hi_selection
+    local ns = vim.api.nvim_create_namespace 'telescope_selection'
+    highlighter.hi_selection = function(self, row, caret)
+      hi_selection(self, row, caret)
+      for _, mark in ipairs(vim.api.nvim_buf_get_extmarks(self.picker.results_bufnr, ns, 0, -1, { details = true })) do
+        local details = mark[4]
+        if details.hl_group == 'TelescopeSelection' then
+          vim.api.nvim_buf_set_extmark(self.picker.results_bufnr, ns, mark[2], mark[3], {
+            id = mark[1],
+            end_row = details.end_row,
+            end_col = details.end_col,
+            hl_group = 'TelescopeSelection',
+            hl_eol = details.hl_eol,
+            hl_mode = 'combine',
+            priority = 100,
+          })
+        end
+      end
+    end
+    highlighter._custom_selection_priority = true
+  end
+  local function highlights()
+    local cyan = vim.o.background == 'light' and '#007C91' or '#56D4DD'
+    vim.api.nvim_set_hl(0, 'CustomTelescopeFilename', { fg = cyan, ctermfg = 51, bold = true })
+    local grey = vim.o.background == 'light' and '#66707B' or '#8B949E'
+    vim.api.nvim_set_hl(0, 'CustomTelescopeSnippet', { fg = grey, ctermfg = 245 })
+  end
+  highlights()
+  vim.api.nvim_create_autocmd('ColorScheme', {
+    group = vim.api.nvim_create_augroup('custom-telescope-highlights', { clear = true }),
+    callback = highlights,
+  })
   vim.api.nvim_create_autocmd('User', {
     group = vim.api.nvim_create_augroup('custom-telescope-wrap', { clear = true }),
     pattern = 'TelescopePreviewerLoaded',
@@ -52,6 +97,44 @@ function M.setup()
   })
 end
 
+function M.path_display(opts, path)
+  local display = require('telescope.utils').transform_path(vim.tbl_extend('force', opts, { path_display = {} }), path)
+  return display, path_highlights(display)
+end
+
+-- Keep location metadata visually separate from the source snippet, without
+-- changing the entry's filename, coordinates, or searchable text.
+function M.location_entry_maker(kind, opts)
+  opts = opts or {}
+  local utils = require 'telescope.utils'
+  local generator = kind == 'grep' and 'gen_from_vimgrep' or 'gen_from_quickfix'
+  local make_entry = require('telescope.make_entry')[generator](opts)
+  return function(value)
+    local entry = make_entry(value)
+    if not entry then return end
+    entry.display = function(e)
+      local path = utils.transform_path(opts, e.filename)
+      local coordinates = e.lnum and (':' .. e.lnum .. (e.col and (':' .. e.col) or '')) or ''
+      local text = e.text or ''
+      if kind ~= 'grep' then text = text:gsub('.* | ', '') end
+      local display = path .. coordinates .. ' │ ' .. text
+      local styles = path_highlights(path)
+      styles[#styles + 1] = { { #path, #path + #coordinates }, 'TelescopeResultsLineNr' }
+      styles[#styles + 1] = { { #path + #coordinates, #path + #coordinates + #' │ ' }, 'Comment' }
+      styles[#styles + 1] = { { #path + #coordinates + #' │ ', #display }, 'CustomTelescopeSnippet' }
+      if kind == 'grep' then
+        local with_icon, highlight, icon = utils.transform_devicons(e.filename, display, opts.disable_devicons)
+        if highlight then
+          styles = utils.merge_styles({ { { 0, #icon }, highlight } }, styles, #icon + 1)
+        end
+        display = with_icon
+      end
+      return display, styles
+    end
+    return entry
+  end
+end
+
 function M.symbol_entry_maker(opts)
   opts = opts or {}
   local make_entry = require('telescope.make_entry').gen_from_lsp_symbols(opts)
@@ -70,7 +153,8 @@ function M.symbol_entry_maker(opts)
       if vim.fn.hlexists(highlight) == 0 then highlight = 'TelescopeResultsNormal' end
       local type_display = { kind:lower(), highlight }
       if hidden then return displayer { e.symbol_name, type_display } end
-      local path, path_style = require('telescope.utils').transform_path(opts, e.filename)
+      local path = require('telescope.utils').transform_path(opts, e.filename)
+      local path_style = path_highlights(path)
       return displayer { { path, function() return path_style end }, e.symbol_name, type_display }
     end
     return entry

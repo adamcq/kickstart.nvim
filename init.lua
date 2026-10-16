@@ -576,7 +576,7 @@ do
   local telescope_actions = require 'telescope.actions'
   telescope_custom.setup()
   local make_symbol_entry = telescope_custom.symbol_entry_maker { path_display = { 'hidden' } }
-  local make_quickfix_entry = require('telescope.make_entry').gen_from_quickfix()
+  local make_quickfix_entry = telescope_custom.location_entry_maker 'quickfix'
   local function make_location_entry(location)
     local buf = vim.fn.bufadd(location.filename)
     if location.filename:match '^jdt://' then
@@ -593,6 +593,7 @@ do
     --  All the info you're looking for is in `:help telescope.setup()`
     --
     defaults = {
+      path_display = telescope_custom.path_display,
       mappings = {
         i = {
           ['<M-f>'] = false,
@@ -618,6 +619,10 @@ do
       },
     },
     pickers = {
+      live_grep = { entry_maker = telescope_custom.location_entry_maker 'grep' },
+      grep_string = { entry_maker = telescope_custom.location_entry_maker 'grep' },
+      quickfix = { entry_maker = make_quickfix_entry },
+      loclist = { entry_maker = make_quickfix_entry },
       buffers = {
         attach_mappings = function(prompt_bufnr, map)
           -- This picker installs Alt+D before user mappings run.
