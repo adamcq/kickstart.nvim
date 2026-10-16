@@ -8,7 +8,16 @@ local function toggle_wrap(prompt_bufnr, pane)
   local wrap = not vim.wo[win].wrap
   vim.wo[win].wrap = wrap
   if pane == 'results' then
+    -- The selected caret is not whitespace, so automatic breakindent differs
+    -- from unselected rows. Indent both by the width of the results prefix.
+    local prefix_width = math.max(vim.fn.strdisplaywidth(picker.selection_caret), vim.fn.strdisplaywidth(picker.entry_prefix))
+    vim.wo[win].breakindent = true
+    vim.wo[win].breakindentopt = 'min:0,column:' .. prefix_width
+    vim.wo[win].showbreak = ''
     picker.wrap_results = wrap
+    -- Results are an inactive window while typing in the prompt. Reapply its
+    -- cursor so Neovim recalculates the viewport for the new screen-line heights.
+    vim.api.nvim_win_set_cursor(win, vim.api.nvim_win_get_cursor(win))
   else
     picker._custom_preview_wrap = wrap
   end
@@ -23,16 +32,22 @@ function M.setup()
     pattern = 'TelescopePreviewerLoaded',
     callback = function(event)
       -- Buffer previewers reset wrap when loading another entry.
-      local state = require 'telescope.state'
-      for _, prompt_bufnr in ipairs(state.get_existing_prompt_bufnrs()) do
-        local picker = state.get_status(prompt_bufnr).picker
-        local win = picker and picker.preview_win
-        if win and vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == event.buf then
-          vim.wo[win].number = true
-          vim.wo[win].relativenumber = false
-          if picker._custom_preview_wrap ~= nil then vim.wo[win].wrap = picker._custom_preview_wrap end
+      -- Let scheduled preview buffer switches finish before configuring the window.
+      vim.schedule(function()
+        local state = require 'telescope.state'
+        for _, prompt_bufnr in ipairs(state.get_existing_prompt_bufnrs()) do
+          local status = state.get_status(prompt_bufnr)
+          local picker = status.picker
+          local win = status.layout and status.layout.preview and status.layout.preview.winid
+          if win and vim.api.nvim_win_is_valid(win) and vim.api.nvim_win_get_buf(win) == event.buf then
+            vim.wo[win].number = true
+            vim.wo[win].relativenumber = false
+            vim.wo[win].numberwidth = 4
+            vim.wo[win].statuscolumn = '%l '
+            if picker._custom_preview_wrap ~= nil then vim.wo[win].wrap = picker._custom_preview_wrap end
+          end
         end
-      end
+      end)
     end,
   })
 end
