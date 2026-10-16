@@ -459,6 +459,10 @@ do
     callback = apply_terminal_theme,
   })
 
+  vim.keymap.set('n', '<leader>tl', function()
+    vim.o.background = vim.o.background == 'dark' and 'light' or 'dark'
+  end, { desc = '[T]oggle [L]ight/dark theme' })
+
   -- Highlight todo, notes, etc in comments
   vim.pack.add { gh 'folke/todo-comments.nvim' }
   require('todo-comments').setup { signs = false }
