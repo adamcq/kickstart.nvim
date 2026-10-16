@@ -312,6 +312,12 @@ do
         return
       end
 
+      if name == 'markdown-preview.nvim' then
+        local package = vim.json.decode(table.concat(vim.fn.readfile(ev.data.path .. '/package.json'), '\n'))
+        run_build(name, { 'bash', 'install.sh', 'v' .. package.version }, ev.data.path .. '/app')
+        return
+      end
+
       if name == 'nvim-treesitter' then
         if not ev.data.active then vim.cmd.packadd 'nvim-treesitter' end
         vim.cmd 'TSUpdate'
@@ -1084,6 +1090,11 @@ do
     -- Keep embedded snippets (such as Omega commands in HTML comments) visible.
     html = { comment = { conceal = false } },
   }
+
+  -- Optional browser preview with Mermaid; keep the existing in-buffer preview.
+  vim.g.mkdp_auto_start = 0
+  vim.g.mkdp_echo_preview_url = 1
+  vim.pack.add { gh 'iamcco/markdown-preview.nvim' }
 
   ---@param buf integer
   ---@param language string

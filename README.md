@@ -10,6 +10,19 @@ A starting point for Neovim that is:
 
 **NOT** a Neovim distribution, but instead a starting point for your configuration.
 
+## Markdown preview
+
+`<leader>mp` continues to open the in-buffer `render-markdown.nvim` preview.
+For browser rendering, including Mermaid charts, open a Markdown file and run
+`:MarkdownPreview`. The browser preview updates as you edit. Use
+`:MarkdownPreviewStop` to stop it, or `:MarkdownPreviewToggle` to toggle it.
+Browser preview starts only when requested; its URL is also shown in Neovim.
+
+The package install/update hook downloads markdown-preview.nvim's prebuilt
+backend, so Node/npm is not required on supported platforms. On a remote
+SSH session, forward the preview's localhost port and open its printed URL
+in your local browser if automatic browser opening is unavailable.
+
 ## Sticky scroll
 
 Tree-sitter context keeps enclosing class, method, and block headers at the top
