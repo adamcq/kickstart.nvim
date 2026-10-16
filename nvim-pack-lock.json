@@ -63,10 +63,6 @@
       "rev": "10fc361835c856ba4233ef5ea135b919bf3dce97",
       "src": "https://github.com/MunifTanjim/nui.nvim"
     },
-    "nvim-intellij-lsp": {
-      "rev": "92adb1253846819b839f0ab8ccea781b7e2b46f2",
-      "src": "https://github.com/gipo355/nvim-intellij-lsp"
-    },
     "nvim-jdtls": {
       "rev": "6e9d953f0b82bccdb834cfde0e893f3119c22592",
       "src": "https://github.com/mfussenegger/nvim-jdtls.git"

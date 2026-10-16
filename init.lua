@@ -871,6 +871,7 @@ do
     -- But for many setups, the LSP (`rust_analyzer`) will work just fine
     -- rust_analyzer = {},
 
+    jdtls = {}, -- Java language support
     marksman = {}, -- Markdown language support
     stylua = {}, -- Used to format Lua code
 
@@ -914,8 +915,6 @@ do
     gh 'mason-org/mason-lspconfig.nvim',
     gh 'WhoIsSethDaniel/mason-tool-installer.nvim',
   }
-  local java_backend = require 'custom.java_backend'
-  if java_backend.server == 'intellij' then vim.pack.add { gh 'gipo355/nvim-intellij-lsp' } end
 
   -- Automatically install LSPs and related tools to stdpath for Neovim
   require('mason').setup {}
@@ -933,15 +932,16 @@ do
   --
   -- You can press `g?` for help in this menu.
   local ensure_installed = vim.tbl_keys(servers or {})
-  -- Keep JDTLS installed as a backup, but enable only the selected Java server.
-  table.insert(ensure_installed, { 'jdtls', version = 'v1.61.0' })
+  for index, name in ipairs(ensure_installed) do
+    if name == 'jdtls' then ensure_installed[index] = { 'jdtls', version = 'v1.61.0' } end
+  end
   vim.list_extend(ensure_installed, {
     -- You can add other tools here that you want Mason to install
   })
 
   require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
-  java_backend.setup()
+  servers.jdtls = require('custom.java').setup()
 
   for name, server in pairs(servers) do
     vim.lsp.config(name, server)

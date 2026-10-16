@@ -1,4 +1,4 @@
--- Run with the real init.lua: NVIM_JAVA_LSP=jdtls nvim --headless -i NONE -c 'luafile scripts/check-java.lua'
+-- Run with the real init.lua: nvim --headless -i NONE -c 'luafile scripts/check-java.lua'
 -- JAVA_CHECK_ROOT overrides the Continuum checkout; JAVA_CHECK_WARMUP=1 rebuilds it first.
 local root = vim.uv.fs_realpath(vim.env.JAVA_CHECK_ROOT or '/home/opc/dev/graal-continuum')
 local started = vim.uv.hrtime()

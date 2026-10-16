@@ -9,7 +9,7 @@ function M.setup()
     -- Keep all sessions outside project directories, accessible from anywhere.
     file = '',
     -- Start the project's server before reloading restored Java library buffers.
-    hooks = { post = { read = function() require('custom.java_backend').restore_library_sources() end } },
+    hooks = { post = { read = function() require('custom.java').restore_library_sources() end } },
   }
 
   local function directory_session()
