@@ -1,4 +1,4 @@
--- Java-specific support; init.lua owns the single vim.lsp.enable('jdtls') startup path.
+-- JDTLS-specific support; custom.java_backend owns the selected server's startup path.
 local M = {}
 local workspaces = {}
 local continuum = '/home/opc/dev/graal-continuum'

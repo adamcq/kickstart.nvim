@@ -48,7 +48,50 @@ be available locally. `<leader>hP` still opens the full PR diff;
 
 ## Java development
 
-Java support lives in `lua/custom/java.lua`, loaded by `init.lua`. Mason installs
+### Choose IntelliJ or JDTLS
+
+`lua/custom/java_backend.lua` selects exactly one Java language server. The default
+is **JDTLS**. IntelliJ has a **4 GiB maximum heap** when selected. Edit
+`server = ... or 'jdtls'` to use `'intellij'` by default, or override it for one session:
+
+```sh
+NVIM_JAVA_LSP=jdtls nvim
+NVIM_JAVA_LSP=intellij nvim
+```
+
+Restart Neovim after changing the selection. `intellij_heap = '4g'` in the same
+file controls IntelliJ's heap; increase it if indexing runs out of memory.
+Total memory includes JVM overhead and separate Gradle processes.
+The original JDTLS configuration, installation and workspace caches remain intact.
+Session restoration only starts JDTLS library-source support when JDTLS is selected.
+
+IntelliJ uses the experimental community adapter
+[nvim-intellij-lsp](https://github.com/gipo355/nvim-intellij-lsp) for JetBrains'
+Java/Kotlin server. It runs on its bundled runtime and uses `JAVA_HOME` for project
+symbol resolution; keep JDK 25 selected for Continuum. Both Java and Kotlin attach,
+with the enclosing Gradle/Maven wrapper preferred over per-module build files.
+This selects `graalflow/dthreads`, since GraalFlow's Git root has no build file.
+The adapter installs only when IntelliJ is selected; Mason continues maintaining
+JDTLS as the backup. Install or refresh the current JetBrains server with
+`:IntellijUpdate` (the adapter's plain `:IntellijInstall` defaults to an older build).
+Review and accept the bundled agreement with `:IntellijAcceptEula`, then open a
+Java file and allow import/indexing to finish. Agreement acceptance is never automatic.
+
+Use `:checkhealth intellij-lsp`, `:IntellijStatus`, `:IntellijLog`, and
+`:IntellijRestart` to inspect or restart it. Standard LSP navigation, completion,
+rename, code actions and Conform's formatting fallback apply to either backend.
+`<leader>jo` organizes imports with either server. JDTLS extraction keys and
+`:JavaWorkspace*`/`:Jdt*` commands are available only in JDTLS mode; use `gra`
+for IntelliJ's available refactoring actions. Keep one IntelliJ server per project.
+Saved JDTLS `jdt://` dependency tabs need to be reopened through IntelliJ navigation
+when changing backends.
+
+JetBrains documents a free preview with builds expiring 30 days after release,
+followed by an Ultimate subscription requirement:
+[installation and licensing](https://www.jetbrains.com/help/intellij-vscode/get_started_vs_code.html).
+The following setup and verification instructions describe the retained JDTLS backend.
+
+JDTLS support lives in `lua/custom/java.lua`, loaded by `custom.java_backend`. Mason installs
 **JDTLS v1.61.0**. The checked-in `nvim-pack-lock.json` pins Neovim plugins,
 including `nvim-jdtls`; keep it when cloning or copying this configuration.
 
@@ -158,13 +201,13 @@ and save lockfile changes after `vim.pack.update()`.
 With no other editor using Continuum's workspace, run from this config repo:
 
 ```sh
-nvim --headless -i NONE -c 'luafile scripts/check-java.lua'
+NVIM_JAVA_LSP=jdtls nvim --headless -i NONE -c 'luafile scripts/check-java.lua'
 ```
 
 To use a different checkout and fully warm it before checking:
 
 ```sh
-JAVA_CHECK_ROOT=/path/to/graal-continuum JAVA_CHECK_WARMUP=1 \
+NVIM_JAVA_LSP=jdtls JAVA_CHECK_ROOT=/path/to/graal-continuum JAVA_CHECK_WARMUP=1 \
   nvim --headless -i NONE -c 'luafile scripts/check-java.lua'
 ```
 
