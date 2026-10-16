@@ -1,0 +1,36 @@
+import org.gradle.api.tasks.compile.JavaCompile
+
+// The JetBrains LSP passes this generated init script on its import requests.
+// Ordinary Gradle invocations and JDTLS must not change their build model.
+if (!gradle.startParameter.initScripts.any { it.name.startsWith('lsp-gradle-init') }) {
+    return
+}
+
+// Match Continuum structurally so this also works across branch worktrees.
+gradle.projectsEvaluated {
+    def root = gradle.rootProject
+    def graalvisor = root.findProject(':continuum-graalvisor')
+    if (graalvisor == null || root.findProject(':continuum-api-runtime-native') == null) {
+        return
+    }
+
+    // Read the configured directory, rather than a mapped task-output provider
+    // that Gradle prohibits querying before the producing task has executed.
+    def ensureToolchain = graalvisor.tasks.findByName('ensureToolchain')
+    if (ensureToolchain == null || !ensureToolchain.hasProperty('toolchainDir')) {
+        return
+    }
+    def jmods = ensureToolchain.toolchainDir.get().dir('jmods')
+
+    root.allprojects { project ->
+        project.tasks.withType(JavaCompile).configureEach { task ->
+            task.options.compilerArgumentProviders.each { arguments ->
+                if (arguments.class.name.contains('NativeImageModulePathArgs') && arguments.hasProperty('jmodsDir')) {
+                    arguments.jmodsDir.set(jmods)
+                    task.dependsOn(ensureToolchain)
+                    logger.lifecycle("[Neovim IntelliJ] Import-safe native module path for ${task.path}")
+                }
+            }
+        }
+    }
+}

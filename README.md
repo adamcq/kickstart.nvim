@@ -86,6 +86,18 @@ for IntelliJ's available refactoring actions. Keep one IntelliJ server per proje
 Saved JDTLS `jdt://` dependency tabs need to be reopened through IntelliJ navigation
 when changing backends.
 
+`gradle/intellij-continuum.init.gradle` works around Continuum's task-backed native
+module-path providers, which JetBrains queries before toolchain tasks execute.
+Link it into `~/.gradle/init.d/nvim-intellij-continuum.gradle` (or the corresponding
+`GRADLE_USER_HOME/init.d` directory). Its guard activates only when Gradle receives
+JetBrains LSP's generated `lsp-gradle-init` import script. It recognizes
+Continuum by its projects, so it also applies to other branch worktrees. It reads
+the configured toolchain directory for compiler arguments and preserves explicit
+toolchain task dependencies. No checkout source files are changed; terminal builds
+and JDTLS leave the guard inactive. The JetBrains internal hook for explicitly
+supplied scripts deletes them after import, so it must not point at this file.
+If upgrading JetBrains changes its generated script name, check the import log.
+
 JetBrains documents a free preview with builds expiring 30 days after release,
 followed by an Ultimate subscription requirement:
 [installation and licensing](https://www.jetbrains.com/help/intellij-vscode/get_started_vs_code.html).
