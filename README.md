@@ -33,6 +33,19 @@ an installed parser and context queries, including Java and Lua.
 Use `<leader>tc` (Space, t, c) or `:TSContext toggle` to toggle it for the current
 Neovim session.
 
+## Git review
+
+`<leader>hO` (Space, h, Shift+o) reviews the current PR's committed hunks in
+read-only file snapshots. Use `]q` / `[q` to move through the changes, with
+added lines highlighted and removed lines shown inline. Deleted files show
+their old content highlighted. `:copen` shows the list of hunks and filenames.
+Binary files are skipped.
+
+Like `<leader>hP`, this uses the PR base reported by `gh`, falling back to
+the origin default branch (or `origin/main` / `origin/master`). The base must
+be available locally. `<leader>hP` still opens the full PR diff;
+`<leader>hQ` still reviews current working changes.
+
 ## Java development
 
 Java support lives in `lua/custom/java.lua`, loaded by `init.lua`. Mason installs

@@ -414,6 +414,8 @@ do
 
   vim.keymap.set('n', '<leader>hg', function() git_review.open_diff(false) end, { desc = 'git repository diff (unstaged)' })
   vim.keymap.set('n', '<leader>hG', function() git_review.open_diff(true) end, { desc = 'git repository diff (staged)' })
+  vim.keymap.set('n', '<leader>hP', git_review.open_pr_diff, { desc = 'git [P]R diff (base...HEAD)' })
+  vim.keymap.set('n', '<leader>hO', git_review.open_pr_hunks, { desc = 'git review [O]pen PR hunks inline via quickfix' })
 
   -- Useful plugin to show you pending keybinds.
   vim.pack.add { gh 'folke/which-key.nvim' }
