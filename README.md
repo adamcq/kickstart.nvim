@@ -46,6 +46,8 @@ the search prompt and selection stay active while a pane is maximized.
 
 Run `nvim --headless -u NONE -i NONE -l scripts/check-telescope.lua` to check
 alignment, truncation, and the display mode cycle with the installed plugins.
+Run `python3 scripts/check-telescope-screen.py` to also check that maximized
+pane content is visible in a terminal.
 
 ## Sticky scroll
 

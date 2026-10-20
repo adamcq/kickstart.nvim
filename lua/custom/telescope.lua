@@ -154,7 +154,11 @@ local function pane_stacking(picker, layout)
       for _, win in ipairs { window.winid, window.border and window.border.winid } do
         if vim.api.nvim_win_is_valid(win) then
           local original = picker._custom_pane_zindexes[win] or 50
-          vim.api.nvim_win_set_config(win, { zindex = pane == picker._custom_maximized_pane and 60 or original })
+          local maximized = pane == picker._custom_maximized_pane
+          -- Plenary draws borders in separate windows filled with blank cells.
+          -- Put content strictly above its border as well as the inactive pane.
+          local zindex = maximized and (win == window.winid and 61 or 60) or original
+          vim.api.nvim_win_set_config(win, { zindex = zindex })
         end
       end
     end

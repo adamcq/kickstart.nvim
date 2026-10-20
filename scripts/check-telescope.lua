@@ -143,13 +143,36 @@ local function check()
 
   picker = open(paths, require('telescope.make_entry').gen_from_file { disable_devicons = true }, {
     previewer = require('telescope.previewers').new_buffer_previewer {
-      define_preview = function(self, entry) vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, { entry.filename }) end,
+      define_preview = function(self, entry) vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, { 'preview: ' .. entry.filename }) end,
     },
   })
   prompt = picker.prompt_bufnr
   local original_getter = picker.get_window_options
   local result_width = vim.api.nvim_win_get_width(picker.results_win)
   local preview_width = vim.api.nvim_win_get_width(picker.preview_win)
+  local function check_visible(pane)
+    if vim.env.TELESCOPE_CHECK_SCREEN ~= '1' then return end
+    local win = picker[pane .. '_win']
+    local expected = picker:get_selection().filename:match '[^/]+$'
+    if pane == 'preview' then
+      expected = 'preview: ' .. picker:get_selection().filename
+      assert(
+        vim.wait(3000, function() return vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(win), 0, 1, false)[1] == expected end),
+        'Preview buffer did not load'
+      )
+    end
+    vim.cmd 'redraw!'
+    local position = vim.api.nvim_win_get_position(win)
+    local screen = {}
+    for row = position[1] + 1, position[1] + vim.api.nvim_win_get_height(win) do
+      local cells = {}
+      for column = position[2] + 1, position[2] + vim.api.nvim_win_get_width(win) do
+        cells[#cells + 1] = vim.fn.screenstring(row, column)
+      end
+      screen[#screen + 1] = table.concat(cells)
+    end
+    assert(table.concat(screen, '\n'):find(expected, 1, true), pane .. ' content is covered on screen')
+  end
   local function check_maximized(pane)
     assert(picker._custom_maximized_pane == pane, 'Wrong pane maximized')
     local active = picker[pane .. '_win']
@@ -157,7 +180,12 @@ local function check()
     assert(vim.api.nvim_win_get_width(active) > math.max(result_width, preview_width), 'Maximized pane did not grow')
     assert(vim.deep_equal(vim.api.nvim_win_get_position(active), vim.api.nvim_win_get_position(inactive)), 'Panes do not overlap')
     assert(vim.api.nvim_win_get_config(active).zindex > vim.api.nvim_win_get_config(inactive).zindex, 'Inactive pane covers maximized pane')
+    local border = picker[pane .. '_border'].winid
+    if border and vim.api.nvim_win_is_valid(border) then
+      assert(vim.api.nvim_win_get_config(active).zindex > vim.api.nvim_win_get_config(border).zindex, 'Border covers maximized content')
+    end
     check_rows(picker)
+    check_visible(pane)
   end
   local function check_restored()
     assert(picker._custom_maximized_pane == nil)
@@ -166,6 +194,8 @@ local function check()
     assert(vim.api.nvim_win_get_width(picker.preview_win) == preview_width, 'Preview width was not restored')
     assert(vim.api.nvim_win_get_config(picker.results_win).zindex == vim.api.nvim_win_get_config(picker.preview_win).zindex, 'Pane stacking was not restored')
     check_rows(picker)
+    check_visible 'results'
+    check_visible 'preview'
   end
   selected = picker:get_selection()
   custom.maximize_results(prompt)
@@ -178,7 +208,7 @@ local function check()
   assert(
     vim.wait(3000, function()
       local preview_lines = vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(picker.preview_win), 0, -1, false)
-      return preview_lines[1] == picker:get_selection().filename
+      return preview_lines[1] == 'preview: ' .. picker:get_selection().filename
     end),
     'Maximized preview did not follow selection'
   )
