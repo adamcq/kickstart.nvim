@@ -184,6 +184,7 @@ do
   -- Clear highlights on search when pressing <Esc> in normal mode
   --  See `:help hlsearch`
   vim.keymap.set('n', '<Esc>', '<cmd>nohlsearch<CR>')
+  vim.keymap.set('n', '<leader>vr', '<cmd>source $MYVIMRC<CR>', { desc = 'Reload Neovim configuration' })
   vim.keymap.set('n', '<leader>mp', '<Cmd>RenderMarkdown preview<CR>', { desc = '[M]arkdown [P]review' })
 
   -- Diagnostic Config & Keymaps

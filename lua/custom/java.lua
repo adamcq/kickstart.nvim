@@ -223,6 +223,9 @@ function M.setup()
       local client = vim.lsp.get_client_by_id(event.data.client_id)
       if not client or client.name ~= 'jdtls' then return end
       local function map(mode, lhs, rhs, desc) vim.keymap.set(mode, lhs, rhs, { buffer = event.buf, desc = 'Java: ' .. desc }) end
+      map('n', '<leader>jw', '<cmd>JavaWorkspaceWarmup<cr>', 'Refresh Gradle and build workspace')
+      map('n', '<leader>jr', '<cmd>JavaWorkspaceRefresh<cr>', 'Refresh Gradle configuration')
+      map('n', '<leader>ji', '<cmd>JavaWorkspaceInfo<cr>', 'Show workspace status')
       map('n', '<leader>jo', jdtls.organize_imports, 'Organize imports')
       map('n', '<leader>jv', jdtls.extract_variable, 'Extract variable')
       map('x', '<leader>jv', function() jdtls.extract_variable { visual = true } end, 'Extract variable')
