@@ -599,12 +599,13 @@ do
     --
     defaults = {
       path_display = telescope_custom.path_display,
+      wrap_results = false,
       mappings = {
         i = {
           ['<M-f>'] = false,
           ['<M-k>'] = false,
           ['<M-q>'] = false,
-          ['<C-g>'] = { telescope_custom.toggle_results_wrap, type = 'action', opts = { desc = 'Toggle results wrap (left)' } },
+          ['<C-g>'] = { telescope_custom.cycle_results_mode, type = 'action', opts = { desc = 'Cycle results: aligned / nowrap / wrap' } },
           ['<C-b>'] = { telescope_custom.toggle_preview_wrap, type = 'action', opts = { desc = 'Toggle preview wrap (right)' } },
         },
         n = {
@@ -618,7 +619,7 @@ do
             type = 'action',
             opts = { desc = 'Send selected results to quickfix' },
           },
-          ['<C-g>'] = { telescope_custom.toggle_results_wrap, type = 'action', opts = { desc = 'Toggle results wrap (left)' } },
+          ['<C-g>'] = { telescope_custom.cycle_results_mode, type = 'action', opts = { desc = 'Cycle results: aligned / nowrap / wrap' } },
           ['<C-b>'] = { telescope_custom.toggle_preview_wrap, type = 'action', opts = { desc = 'Toggle preview wrap (right)' } },
         },
       },

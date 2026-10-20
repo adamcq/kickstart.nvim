@@ -23,6 +23,22 @@ backend, so Node/npm is not required on supported platforms. On a remote
 SSH session, forward the preview's localhost port and open its printed URL
 in your local browser if automatic browser opening is unavailable.
 
+## Search results
+
+File paths in Telescope, including `<leader>sf` and `<leader>sg`, align at the
+filename's right edge by default. The path column fits the longest result path,
+up to 60 display cells and the available window width. Grep results reserve
+space for line numbers and source text. Paths that do not fit lose characters
+from the left and start with `...`; long filenames keep their ending.
+
+In insert or normal mode, Ctrl+G cycles through aligned paths, full paths without
+wrapping, and full paths with wrapping. Ctrl+B toggles wrapping in the preview.
+Search and file selection use the full path in all three modes. Change
+`M.path_width` in `lua/custom/telescope.lua` to set the column limit.
+
+Run `nvim --headless -u NONE -i NONE -l scripts/check-telescope.lua` to check
+alignment, truncation, and the display mode cycle with the installed plugins.
+
 ## Sticky scroll
 
 Tree-sitter context keeps enclosing class, method, and block headers at the top

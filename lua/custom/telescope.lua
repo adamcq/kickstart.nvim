@@ -1,5 +1,73 @@
 local M = {}
 
+-- Limit the path column so grep results still have room for source text.
+M.path_width = 60
+
+local function current_picker() return (require('telescope.state').get_status(vim.api.nvim_get_current_buf()) or {}).picker end
+
+local function plain_path(opts, path) return require('telescope.utils').transform_path(vim.tbl_extend('force', opts, { path_display = {} }), path) end
+
+local function aligned_path(opts, path, reserve)
+  local display = plain_path(opts, path)
+  local picker = current_picker()
+  if not picker then return display end
+  -- on_complete is a picker option, not a Telescope defaults option. Attach
+  -- once when a picker first displays a path, including extension pickers.
+  if not picker._custom_alignment_callback then
+    picker:register_completion_callback(M.align_results)
+    picker._custom_alignment_callback = true
+  end
+  if (picker._custom_results_mode or 'aligned') ~= 'aligned' then return display end
+  local win = picker.results_win
+  if not win or not vim.api.nvim_win_is_valid(win) then return display end
+  local prefix = math.max(vim.fn.strdisplaywidth(picker.selection_caret), vim.fn.strdisplaywidth(picker.entry_prefix))
+  -- Allow two cells for a devicon and its separator, even without devicons.
+  local available = vim.api.nvim_win_get_width(win) - prefix - 2 - (reserve or 0)
+  local width = math.max(4, math.min(picker._custom_path_width or M.path_width, available))
+  if vim.fn.strdisplaywidth(display) > width then
+    -- Remove whole characters from the left, preserving UTF-8 and the suffix.
+    local count = vim.fn.strchars(display)
+    local low, high = 0, count
+    while low < high do
+      local middle = math.floor((low + high) / 2)
+      if vim.fn.strdisplaywidth(vim.fn.strcharpart(display, middle)) <= width - 3 then
+        high = middle
+      else
+        low = middle + 1
+      end
+    end
+    display = '...' .. vim.fn.strcharpart(display, low)
+  end
+  return string.rep(' ', math.max(0, width - vim.fn.strdisplaywidth(display))) .. display
+end
+
+local function redraw_results(picker)
+  if not picker.manager or not vim.api.nvim_buf_is_valid(picker.results_bufnr) then return end
+  local selected = picker:get_selection_row()
+  local index = 0
+  for entry in picker.manager:iter() do
+    index = index + 1
+    if index > picker.max_results then break end
+    picker:entry_adder(index, entry, nil, false)
+  end
+  picker:set_selection(selected)
+end
+
+function M.align_results(picker)
+  if not picker.manager then return end
+  local width = 0
+  for entry in picker.manager:iter() do
+    local path = entry.filename or entry.path
+    if type(path) == 'string' then
+      local display = plain_path({ cwd = picker.cwd }, path)
+      width = math.max(width, vim.fn.strdisplaywidth(display))
+    end
+    if width >= M.path_width then break end
+  end
+  picker._custom_path_width = math.min(M.path_width, math.max(4, width))
+  if (picker._custom_results_mode or 'aligned') == 'aligned' then redraw_results(picker) end
+end
+
 local function path_highlights(path)
   local filename = path:match '[^/\\]+$' or ''
   local start = #path - #filename
@@ -9,12 +77,12 @@ local function path_highlights(path)
   return styles
 end
 
-local function toggle_wrap(prompt_bufnr, pane)
+local function toggle_wrap(prompt_bufnr, pane, wrap)
   local picker = require('telescope.actions.state').get_current_picker(prompt_bufnr)
   local win = picker[pane .. '_win']
   if not win or not vim.api.nvim_win_is_valid(win) then return end
 
-  local wrap = not vim.wo[win].wrap
+  if wrap == nil then wrap = not vim.wo[win].wrap end
   vim.wo[win].wrap = wrap
   if pane == 'results' then
     -- The selected caret is not whitespace, so automatic breakindent differs
@@ -32,13 +100,24 @@ local function toggle_wrap(prompt_bufnr, pane)
   end
 end
 
-function M.toggle_results_wrap(prompt_bufnr) toggle_wrap(prompt_bufnr, 'results') end
+function M.cycle_results_mode(prompt_bufnr)
+  local picker = require('telescope.actions.state').get_current_picker(prompt_bufnr)
+  local mode = picker._custom_results_mode or 'aligned'
+  local next_mode = ({ aligned = 'nowrap', nowrap = 'wrap', wrap = 'aligned' })[mode]
+  picker._custom_results_mode = next_mode
+  local win = picker.results_win
+  if not win or not vim.api.nvim_win_is_valid(win) then return end
+  -- Reuse the existing continuation indentation for wrapped results.
+  toggle_wrap(prompt_bufnr, 'results', next_mode == 'wrap')
+  vim.api.nvim_win_call(win, function() vim.fn.winrestview { leftcol = 0 } end)
+  redraw_results(picker)
+end
 function M.toggle_preview_wrap(prompt_bufnr) toggle_wrap(prompt_bufnr, 'preview') end
 
 function M.setup()
   -- Neovim's default extmark priority can put Telescope's selection above its
   -- entry colors. Keep the selection background below filenames and snippets.
-  local highlighter = getmetatable(require('telescope.pickers.highlights').new({}))
+  local highlighter = getmetatable(require('telescope.pickers.highlights').new {})
   if not highlighter._custom_selection_priority then
     local hi_selection = highlighter.hi_selection
     local ns = vim.api.nvim_create_namespace 'telescope_selection'
@@ -98,7 +177,7 @@ function M.setup()
 end
 
 function M.path_display(opts, path)
-  local display = require('telescope.utils').transform_path(vim.tbl_extend('force', opts, { path_display = {} }), path)
+  local display = aligned_path(opts, path)
   return display, path_highlights(display)
 end
 
@@ -113,7 +192,7 @@ function M.location_entry_maker(kind, opts)
     local entry = make_entry(value)
     if not entry then return end
     entry.display = function(e)
-      local path = utils.transform_path(opts, e.filename)
+      local path = aligned_path(opts, e.filename, 24)
       local coordinates = e.lnum and (':' .. e.lnum .. (e.col and (':' .. e.col) or '')) or ''
       local text = e.text or ''
       if kind ~= 'grep' then text = text:gsub('.* | ', '') end
@@ -124,9 +203,7 @@ function M.location_entry_maker(kind, opts)
       styles[#styles + 1] = { { #path + #coordinates + #' │ ', #display }, 'CustomTelescopeSnippet' }
       if kind == 'grep' then
         local with_icon, highlight, icon = utils.transform_devicons(e.filename, display, opts.disable_devicons)
-        if highlight then
-          styles = utils.merge_styles({ { { 0, #icon }, highlight } }, styles, #icon + 1)
-        end
+        if highlight then styles = utils.merge_styles({ { { 0, #icon }, highlight } }, styles, #icon + 1) end
         display = with_icon
       end
       return display, styles
@@ -153,7 +230,7 @@ function M.symbol_entry_maker(opts)
       if vim.fn.hlexists(highlight) == 0 then highlight = 'TelescopeResultsNormal' end
       local type_display = { kind:lower(), highlight }
       if hidden then return displayer { e.symbol_name, type_display } end
-      local path = require('telescope.utils').transform_path(opts, e.filename)
+      local path = aligned_path(opts, e.filename, 24)
       local path_style = path_highlights(path)
       return displayer { { path, function() return path_style end }, e.symbol_name, type_display }
     end
