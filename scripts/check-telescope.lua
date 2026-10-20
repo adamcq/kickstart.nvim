@@ -87,20 +87,58 @@ local function check()
   actions.close(prompt)
 
   local matches = {}
+  local locations = { { 1, 1234 }, { 22, 33 }, { 333, 2 }, { 4444, 111 } }
   for i, path in ipairs(paths) do
-    matches[i] = path .. ':12:3:needle source text'
+    matches[i] = path .. ':' .. locations[i][1] .. ':' .. locations[i][2] .. ':needle source text'
   end
   picker = open(matches, custom.location_entry_maker('grep', { disable_devicons = true }))
-  local filename_end
+  local filename_end, separator_column
   for entry in picker.manager:iter() do
     local text = display(picker, entry)
-    local position = assert(text:find(':12:3 │ needle source text', 1, true), text)
+    local position = assert(text:find ':%s*%d+:%s*%d+ │ needle source text', text)
     local width = vim.fn.strdisplaywidth(text:sub(1, position - 1))
     assert(not filename_end or filename_end == width, 'Grep filenames are not aligned')
     filename_end = width
+    local separator = assert(text:find(' │ ', 1, true))
+    local column = vim.fn.strdisplaywidth(text:sub(1, separator - 1))
+    assert(not separator_column or separator_column == column, 'Grep separators are not aligned with mixed coordinate widths')
+    separator_column = column
     assert(entry.filename:match '%.java$', 'Filename changed')
-    assert(entry.lnum == 12 and entry.col == 3, 'Location changed')
+    local line, offset = text:match ':%s*(%d+):%s*(%d+) │ '
+    assert(tonumber(line) == entry.lnum and tonumber(offset) == entry.col, 'Location changed')
   end
+  check_rows(picker)
+  for _, mode in ipairs { 'nowrap', 'wrap', 'aligned' } do
+    custom.cycle_results_mode(picker.prompt_bufnr)
+    check_rows(picker)
+    for entry in picker.manager:iter() do
+      local text = display(picker, entry)
+      if mode == 'aligned' then
+        local separator = assert(text:find(' │ ', 1, true))
+        assert(vim.fn.strdisplaywidth(text:sub(1, separator - 1)) == separator_column, 'Mode cycle lost separator alignment')
+      else
+        assert(text:find(':' .. entry.lnum .. ':' .. entry.col .. ' │ ', 1, true), 'Full-path mode changed coordinates')
+      end
+    end
+  end
+  picker:reset_prompt 'Short.java'
+  assert(
+    vim.wait(3000, function()
+      local widths = picker._custom_location_widths
+      return picker.manager:num_results() == 1 and widths.line == 1 and widths.column == 4
+    end),
+    'Coordinate widths did not shrink with filtered results'
+  )
+  check_rows(picker)
+  picker:reset_prompt ''
+  assert(
+    vim.wait(3000, function()
+      local widths = picker._custom_location_widths
+      return picker.manager:num_results() == #matches and widths.line == 4 and widths.column == 4
+    end),
+    'Coordinate widths did not expand with results'
+  )
+  check_rows(picker)
   actions.close(picker.prompt_bufnr)
 
   picker = open({ 'a.lua', 'src/b.lua' }, require('telescope.make_entry').gen_from_file { disable_devicons = true })

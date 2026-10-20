@@ -55,17 +55,31 @@ end
 
 function M.align_results(picker)
   if not picker.manager then return end
-  local width = 0
+  local width, line_width, column_width = 0, 0, 0
   for entry in picker.manager:iter() do
     local path = entry.filename or entry.path
-    if type(path) == 'string' then
+    if width < M.path_width and type(path) == 'string' then
       local display = plain_path({ cwd = picker.cwd }, path)
       width = math.max(width, vim.fn.strdisplaywidth(display))
     end
-    if width >= M.path_width then break end
+    if entry.lnum then line_width = math.max(line_width, #tostring(entry.lnum)) end
+    if entry.col then column_width = math.max(column_width, #tostring(entry.col)) end
   end
   picker._custom_path_width = math.min(M.path_width, math.max(4, width))
+  picker._custom_location_widths = { line = line_width, column = column_width }
   if (picker._custom_results_mode or 'aligned') == 'aligned' then redraw_results(picker) end
+end
+
+local function location_coordinates(entry)
+  local picker = current_picker()
+  local widths = picker and picker._custom_location_widths
+  if not widths or (picker._custom_results_mode or 'aligned') ~= 'aligned' then
+    return entry.lnum and (':' .. entry.lnum .. (entry.col and (':' .. entry.col) or '')) or ''
+  end
+  if widths.line == 0 then return '' end
+  local line = entry.lnum and (':' .. string.format('%' .. widths.line .. 's', entry.lnum)) or string.rep(' ', widths.line + 1)
+  local column = widths.column > 0 and (':' .. string.format('%' .. widths.column .. 's', entry.col or '')) or ''
+  return line .. column
 end
 
 local function path_highlights(path)
@@ -193,7 +207,7 @@ function M.location_entry_maker(kind, opts)
     if not entry then return end
     entry.display = function(e)
       local path = aligned_path(opts, e.filename, 24)
-      local coordinates = e.lnum and (':' .. e.lnum .. (e.col and (':' .. e.col) or '')) or ''
+      local coordinates = location_coordinates(e)
       local text = e.text or ''
       if kind ~= 'grep' then text = text:gsub('.* | ', '') end
       local display = path .. coordinates .. ' │ ' .. text

@@ -30,6 +30,8 @@ filename's right edge by default. The path column fits the longest result path,
 up to 60 display cells and the available window width. Grep results reserve
 space for line numbers and source text. Paths that do not fit lose characters
 from the left and start with `...`; long filenames keep their ending.
+Line numbers and offsets each use the maximum digit count in the current
+results, so the `│` separators and source text also align.
 
 In insert or normal mode, Ctrl+G cycles through aligned paths, full paths without
 wrapping, and full paths with wrapping. Ctrl+B toggles wrapping in the preview.
