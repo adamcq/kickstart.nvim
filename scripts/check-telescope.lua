@@ -25,9 +25,9 @@ local function check()
     'another/module/' .. string.rep('Long', 24) .. 'Suffix.java',
     'unicode/目录/' .. string.rep('界', 40) .. '尾.java',
   }
-  local function open(results, maker)
+  local function open(results, maker, opts)
     local completed = false
-    local picker = pickers.new({}, {
+    local picker = pickers.new(opts or {}, {
       finder = finders.new_table { results = results, entry_maker = maker },
       sorter = config.generic_sorter {},
       on_complete = { function() completed = true end },
@@ -141,11 +141,81 @@ local function check()
   check_rows(picker)
   actions.close(picker.prompt_bufnr)
 
+  picker = open(paths, require('telescope.make_entry').gen_from_file { disable_devicons = true }, {
+    previewer = require('telescope.previewers').new_buffer_previewer {
+      define_preview = function(self, entry) vim.api.nvim_buf_set_lines(self.state.bufnr, 0, -1, false, { entry.filename }) end,
+    },
+  })
+  prompt = picker.prompt_bufnr
+  local original_getter = picker.get_window_options
+  local result_width = vim.api.nvim_win_get_width(picker.results_win)
+  local preview_width = vim.api.nvim_win_get_width(picker.preview_win)
+  local function check_maximized(pane)
+    assert(picker._custom_maximized_pane == pane, 'Wrong pane maximized')
+    local active = picker[pane .. '_win']
+    local inactive = picker[(pane == 'results' and 'preview' or 'results') .. '_win']
+    assert(vim.api.nvim_win_get_width(active) > math.max(result_width, preview_width), 'Maximized pane did not grow')
+    assert(vim.deep_equal(vim.api.nvim_win_get_position(active), vim.api.nvim_win_get_position(inactive)), 'Panes do not overlap')
+    assert(vim.api.nvim_win_get_config(active).zindex > vim.api.nvim_win_get_config(inactive).zindex, 'Inactive pane covers maximized pane')
+    check_rows(picker)
+  end
+  local function check_restored()
+    assert(picker._custom_maximized_pane == nil)
+    assert(picker.get_window_options == original_getter, 'Original layout was not restored')
+    assert(vim.api.nvim_win_get_width(picker.results_win) == result_width, 'Results width was not restored')
+    assert(vim.api.nvim_win_get_width(picker.preview_win) == preview_width, 'Preview width was not restored')
+    assert(vim.api.nvim_win_get_config(picker.results_win).zindex == vim.api.nvim_win_get_config(picker.preview_win).zindex, 'Pane stacking was not restored')
+    check_rows(picker)
+  end
+  selected = picker:get_selection()
+  custom.maximize_results(prompt)
+  check_maximized 'results'
+  custom.maximize_preview(prompt)
+  check_maximized 'preview'
+  assert(picker:get_selection() == selected, 'Maximizing changed selection')
+  actions.move_selection_next(prompt)
+  assert(picker:get_selection() ~= selected, 'Selection cannot move while preview is maximized')
+  assert(
+    vim.wait(3000, function()
+      local preview_lines = vim.api.nvim_buf_get_lines(vim.api.nvim_win_get_buf(picker.preview_win), 0, -1, false)
+      return preview_lines[1] == picker:get_selection().filename
+    end),
+    'Maximized preview did not follow selection'
+  )
+  picker:reset_prompt 'Short.java'
+  assert(vim.wait(3000, function() return picker.manager:num_results() == 1 end), 'Cannot filter while preview is maximized')
+  vim.wait(50, function() return false end)
+  check_maximized 'preview'
+  vim.o.columns = 150
+  picker:full_layout_update()
+  assert(picker._custom_maximized_pane == 'preview', 'Resize lost maximized pane')
+  assert(vim.api.nvim_win_get_width(picker.preview_win) == vim.api.nvim_win_get_width(picker.results_win), 'Resize broke pane overlap')
+  vim.o.columns = 180
+  custom.maximize_preview(prompt)
+  check_restored()
+  assert(picker:_get_prompt() == 'Short.java', 'Restoring changed search text')
+  custom.maximize_results(prompt)
+  check_maximized 'results'
+  custom.maximize_results(prompt)
+  check_restored()
+  custom.maximize_preview(prompt)
+  custom.restore_panes(prompt)
+  check_restored()
+  actions.close(prompt)
+
   picker = open({ 'a.lua', 'src/b.lua' }, require('telescope.make_entry').gen_from_file { disable_devicons = true })
+  custom.maximize_preview(picker.prompt_bufnr)
+  assert(picker._custom_maximized_pane == nil, 'Picker without a preview entered preview mode')
   assert(picker._custom_path_width == #'src/b.lua', 'Short paths use an unnecessarily wide column')
+  custom.maximize_results(picker.prompt_bufnr)
   actions.close(picker.prompt_bufnr)
 
   local builtin = require 'telescope.builtin'
+  builtin.resume()
+  picker = require('telescope.actions.state').get_current_picker(vim.api.nvim_get_current_buf())
+  assert(vim.wait(3000, function() return picker.manager and picker:get_selection() ~= nil end), 'Cannot resume a maximized picker')
+  assert(not picker._custom_maximized_pane, 'Resumed picker did not restore its normal layout')
+  actions.close(picker.prompt_bufnr)
   builtin.find_files { find_command = { 'printf', '%s\n', 'a.lua', 'src/b.lua' }, previewer = false, disable_devicons = true }
   picker = require('telescope.actions.state').get_current_picker(vim.api.nvim_get_current_buf())
   assert(vim.wait(3000, function() return picker._custom_path_width == #'src/b.lua' end), 'find_files default did not align')
@@ -161,7 +231,7 @@ local function check()
   assert(vim.wait(3000, function() return picker._custom_path_width ~= nil end), 'live_grep default did not align')
   check_rows(picker)
   actions.close(picker.prompt_bufnr)
-  print 'Telescope checks passed: alignment, truncation, UTF-8, grep locations, resize, mode cycle, find_files, and live_grep'
+  print 'Telescope checks passed: alignment, truncation, UTF-8, grep locations, pane maximization, resize, resume, mode cycle, find_files, and live_grep'
 end
 
 local ok, err = xpcall(check, debug.traceback)

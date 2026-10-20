@@ -38,6 +38,12 @@ wrapping, and full paths with wrapping. Ctrl+B toggles wrapping in the preview.
 Search and file selection use the full path in all three modes. Change
 `M.path_width` in `lua/custom/telescope.lua` to set the column limit.
 
+Press Esc to enter Telescope's normal mode, then use Alt+H to maximize the
+results pane or Alt+L to maximize the preview. Press the same shortcut again
+to restore the split, or use Alt+= to restore it at any time. You can switch
+directly between maximized panes. These shortcuts apply only in normal mode;
+the search prompt and selection stay active while a pane is maximized.
+
 Run `nvim --headless -u NONE -i NONE -l scripts/check-telescope.lua` to check
 alignment, truncation, and the display mode cycle with the installed plugins.
 

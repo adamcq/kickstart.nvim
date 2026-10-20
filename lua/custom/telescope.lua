@@ -128,6 +128,106 @@ function M.cycle_results_mode(prompt_bufnr)
 end
 function M.toggle_preview_wrap(prompt_bufnr) toggle_wrap(prompt_bufnr, 'preview') end
 
+local function maximized_window_options(picker, columns, lines)
+  local original = picker._custom_pane_window_options
+  -- Use the picker's own layout without its preview to get the full main area.
+  local previewer = picker.previewer
+  picker.previewer = nil
+  local ok, options = pcall(original, picker, columns, lines)
+  picker.previewer = previewer
+  if not ok then error(options) end
+  if previewer then
+    options.preview = require('telescope.pickers.window').get_initial_window_options(picker).preview
+    for _, key in ipairs { 'line', 'col', 'width', 'height' } do
+      options.preview[key] = options.results[key]
+    end
+    -- Keep both windows alive for selection, scrolling, and preview updates.
+    -- The active pane covers the other pane, including its border.
+  end
+  return options
+end
+
+local function pane_stacking(picker, layout)
+  for _, pane in ipairs { 'results', 'preview' } do
+    local window = layout[pane]
+    if window then
+      for _, win in ipairs { window.winid, window.border and window.border.winid } do
+        if vim.api.nvim_win_is_valid(win) then
+          local original = picker._custom_pane_zindexes[win] or 50
+          vim.api.nvim_win_set_config(win, { zindex = pane == picker._custom_maximized_pane and 60 or original })
+        end
+      end
+    end
+  end
+end
+
+function M.restore_panes(prompt_bufnr)
+  local picker = require('telescope.actions.state').get_current_picker(prompt_bufnr)
+  if not picker._custom_maximized_pane then return end
+  local layout = require('telescope.state').get_status(prompt_bufnr).layout
+  picker.get_window_options = picker._custom_pane_window_options
+  layout.update = picker._custom_pane_layout_update
+  picker._custom_pane_window_options = nil
+  picker._custom_pane_layout_update = nil
+  picker._custom_maximized_pane = nil
+  picker:full_layout_update()
+  pane_stacking(picker, layout)
+  picker._custom_pane_zindexes = nil
+  redraw_results(picker)
+end
+
+local function maximize_pane(prompt_bufnr, pane)
+  local picker = require('telescope.actions.state').get_current_picker(prompt_bufnr)
+  if picker._custom_maximized_pane == pane then return M.restore_panes(prompt_bufnr) end
+  if pane == 'preview' and not picker.previewer then return end
+  if not picker._custom_maximized_pane then
+    local layout = require('telescope.state').get_status(prompt_bufnr).layout
+    picker._custom_pane_window_options = picker.get_window_options
+    picker._custom_pane_layout_update = layout.update
+    picker._custom_pane_zindexes = {}
+    for _, name in ipairs { 'results', 'preview' } do
+      local window = layout[name]
+      if window then
+        for _, win in ipairs { window.winid, window.border and window.border.winid } do
+          if vim.api.nvim_win_is_valid(win) then picker._custom_pane_zindexes[win] = vim.api.nvim_win_get_config(win).zindex end
+        end
+      end
+    end
+    picker.get_window_options = maximized_window_options
+    layout.update = function(self)
+      picker._custom_pane_layout_update(self)
+      -- Plenary's popup.move does not apply zindex options during layout updates.
+      pane_stacking(picker, self)
+    end
+    if not picker._custom_pane_close_hook then
+      picker._custom_pane_close_hook = true
+      vim.api.nvim_create_autocmd('BufLeave', {
+        buffer = prompt_bufnr,
+        once = true,
+        callback = function()
+          -- Resume constructs a new picker from the cached options. Do not
+          -- leave it a window-options wrapper that depends on this picker.
+          if picker._custom_maximized_pane then
+            picker.get_window_options = picker._custom_pane_window_options
+            layout.update = picker._custom_pane_layout_update
+            picker._custom_maximized_pane = nil
+            picker._custom_pane_window_options = nil
+            picker._custom_pane_layout_update = nil
+            picker._custom_pane_zindexes = nil
+          end
+          picker._custom_pane_close_hook = nil
+        end,
+      })
+    end
+  end
+  picker._custom_maximized_pane = pane
+  picker:full_layout_update()
+  redraw_results(picker)
+end
+
+function M.maximize_results(prompt_bufnr) maximize_pane(prompt_bufnr, 'results') end
+function M.maximize_preview(prompt_bufnr) maximize_pane(prompt_bufnr, 'preview') end
+
 function M.setup()
   -- Neovim's default extmark priority can put Telescope's selection above its
   -- entry colors. Keep the selection background below filenames and snippets.
