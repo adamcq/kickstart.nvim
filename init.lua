@@ -122,6 +122,27 @@ do
   --  Schedule the setting after `UiEnter` because it can increase startup-time.
   --  Remove this option if you want your OS clipboard to remain independent.
   --  See `:help 'clipboard'`
+  if vim.env.SSH_TTY or vim.env.SSH_CONNECTION then
+    -- Send remote yanks to the laptop terminal's clipboard using OSC 52.
+    -- Keep a local copy for p/P: many terminals do not allow clipboard reads.
+    local osc52 = require 'vim.ui.clipboard.osc52'
+    local function clipboard_register(register)
+      local contents = { {}, 'v' }
+      local copy = osc52.copy(register)
+      return function(lines, regtype)
+        contents = { vim.deepcopy(lines), regtype }
+        copy(lines)
+      end, function() return vim.deepcopy(contents) end
+    end
+    local copy_plus, paste_plus = clipboard_register '+'
+    local copy_star, paste_star = clipboard_register '*'
+    vim.g.clipboard = {
+      name = 'OSC 52 (SSH)',
+      copy = { ['+'] = copy_plus, ['*'] = copy_star },
+      paste = { ['+'] = paste_plus, ['*'] = paste_star },
+      cache_enabled = 0,
+    }
+  end
   vim.schedule(function() vim.o.clipboard = 'unnamedplus' end)
 
   -- Enable break indent
