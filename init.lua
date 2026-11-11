@@ -598,6 +598,7 @@ do
     --  All the info you're looking for is in `:help telescope.setup()`
     --
     defaults = {
+      layout_config = { width = 0.95 },
       path_display = telescope_custom.path_display,
       wrap_results = false,
       mappings = {
@@ -615,6 +616,8 @@ do
           ['<M-h>'] = { telescope_custom.maximize_results, type = 'action', opts = { desc = 'Maximize results / restore split' } },
           ['<M-l>'] = { telescope_custom.maximize_preview, type = 'action', opts = { desc = 'Maximize preview / restore split' } },
           ['<M-=>'] = { telescope_custom.restore_panes, type = 'action', opts = { desc = 'Restore pane split' } },
+          ['<'] = { telescope_custom.move_divider_left, type = 'action', opts = { desc = 'Move divider left (widen preview)' } },
+          ['>'] = { telescope_custom.move_divider_right, type = 'action', opts = { desc = 'Move divider right (widen results)' } },
           ['h'] = { telescope_actions.results_scrolling_left, type = 'action', opts = { desc = 'Scroll results left' } },
           ['l'] = { telescope_actions.results_scrolling_right, type = 'action', opts = { desc = 'Scroll results right' } },
           ['q'] = {

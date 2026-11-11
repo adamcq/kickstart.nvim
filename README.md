@@ -44,6 +44,14 @@ to restore the split, or use Alt+= to restore it at any time. You can switch
 directly between maximized panes. These shortcuts apply only in normal mode;
 the search prompt and selection stay active while a pane is maximized.
 
+In normal mode, press `<` to move the divider left and enlarge the preview.
+Press `>` to move it right and enlarge the results. Each press changes the
+split by 5 percentage points. Each pane keeps at least 20% of the available
+pane width. The proportion stays the same when you resize Neovim. These keys
+apply when both panes are visible in the horizontal layout.
+As results narrow, source text disappears first. Filenames shorten only when
+the pane can no longer fit the path, location, and separator.
+
 Run `nvim --headless -u NONE -i NONE -l scripts/check-telescope.lua` to check
 alignment, truncation, and the display mode cycle with the installed plugins.
 Run `python3 scripts/check-telescope-screen.py` to also check that maximized

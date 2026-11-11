@@ -232,6 +232,28 @@ end
 function M.maximize_results(prompt_bufnr) maximize_pane(prompt_bufnr, 'results') end
 function M.maximize_preview(prompt_bufnr) maximize_pane(prompt_bufnr, 'preview') end
 
+local function move_divider(prompt_bufnr, direction)
+  local picker = require('telescope.actions.state').get_current_picker(prompt_bufnr)
+  if picker.layout_strategy ~= 'horizontal' or picker._custom_maximized_pane then return end
+  local preview, results = picker.preview_win, picker.results_win
+  if not preview or not vim.api.nvim_win_is_valid(preview) then return end
+  local preview_width = vim.api.nvim_win_get_width(preview)
+  local total = preview_width + vim.api.nvim_win_get_width(results)
+  local ratio = picker._custom_preview_ratio or preview_width / total
+  ratio = math.max(0.2, math.min(0.8, ratio - direction * 0.05))
+  picker._custom_preview_ratio = ratio
+  picker.layout_config.horizontal = picker.layout_config.horizontal or {}
+  picker.layout_config.horizontal.preview_width = function(self, columns)
+    local spacing = self.window.border == false and 1 or 4
+    return math.max(1, math.floor((columns - spacing) * ratio))
+  end
+  picker:full_layout_update()
+  redraw_results(picker)
+end
+
+function M.move_divider_left(prompt_bufnr) move_divider(prompt_bufnr, -1) end
+function M.move_divider_right(prompt_bufnr) move_divider(prompt_bufnr, 1) end
+
 function M.setup()
   -- Neovim's default extmark priority can put Telescope's selection above its
   -- entry colors. Keep the selection background below filenames and snippets.
@@ -310,8 +332,9 @@ function M.location_entry_maker(kind, opts)
     local entry = make_entry(value)
     if not entry then return end
     entry.display = function(e)
-      local path = aligned_path(opts, e.filename, 24)
       local coordinates = location_coordinates(e)
+      -- Clip the snippet before shortening paths as the results pane narrows.
+      local path = aligned_path(opts, e.filename, vim.fn.strdisplaywidth(coordinates .. ' │ '))
       local text = e.text or ''
       if kind ~= 'grep' then text = text:gsub('.* | ', '') end
       local display = path .. coordinates .. ' │ ' .. text

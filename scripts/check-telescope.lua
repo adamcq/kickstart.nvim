@@ -108,6 +108,23 @@ local function check()
     assert(tonumber(line) == entry.lnum and tonumber(offset) == entry.col, 'Location changed')
   end
   check_rows(picker)
+  local full_width = vim.api.nvim_win_get_width(picker.results_win)
+  -- There is room for the path and location, but not the old 24-cell reserve.
+  vim.api.nvim_win_set_width(picker.results_win, separator_column + 8)
+  for entry in picker.manager:iter() do
+    local text = display(picker, entry)
+    local separator = assert(text:find(' │ ', 1, true))
+    assert(vim.fn.strdisplaywidth(text:sub(1, separator - 1)) == separator_column, 'Shrinking clipped filenames before the source text')
+  end
+  vim.api.nvim_win_set_width(picker.results_win, separator_column - 8)
+  for entry in picker.manager:iter() do
+    local text = display(picker, entry)
+    local separator = assert(text:find(' │ ', 1, true))
+    local column = vim.fn.strdisplaywidth(text:sub(1, separator - 1))
+    assert(column < separator_column, 'Narrow results did not shorten paths after reaching the separator')
+    assert(column + 3 <= vim.api.nvim_win_get_width(picker.results_win) - #picker.entry_prefix, 'Location separator exceeds results width')
+  end
+  vim.api.nvim_win_set_width(picker.results_win, full_width)
   for _, mode in ipairs { 'nowrap', 'wrap', 'aligned' } do
     custom.cycle_results_mode(picker.prompt_bufnr)
     check_rows(picker)
@@ -231,11 +248,35 @@ local function check()
   custom.maximize_preview(prompt)
   custom.restore_panes(prompt)
   check_restored()
+  selected = picker:get_selection()
+  custom.move_divider_left(prompt)
+  assert(vim.api.nvim_win_get_width(picker.preview_win) > preview_width, 'Moving divider left did not widen preview')
+  assert(vim.api.nvim_win_get_width(picker.results_win) < result_width, 'Moving divider left did not shrink results')
+  custom.move_divider_right(prompt)
+  assert(math.abs(vim.api.nvim_win_get_width(picker.preview_win) - preview_width) <= 1, 'Opposite divider moves did not restore width')
+  for _ = 1, 30 do custom.move_divider_left(prompt) end
+  assert(picker._custom_preview_ratio == 0.8, 'Preview width limit failed')
+  assert(vim.api.nvim_win_get_width(picker.results_win) > 0, 'Results disappeared')
+  for _ = 1, 30 do custom.move_divider_right(prompt) end
+  assert(picker._custom_preview_ratio == 0.2, 'Results width limit failed')
+  local ratio = vim.api.nvim_win_get_width(picker.preview_win) / vim.api.nvim_win_get_width(picker.results_win)
+  vim.o.columns = 150
+  picker:full_layout_update()
+  assert(math.abs(vim.api.nvim_win_get_width(picker.preview_win) / vim.api.nvim_win_get_width(picker.results_win) - ratio) < 0.03, 'Resize lost divider ratio')
+  custom.maximize_preview(prompt)
+  custom.restore_panes(prompt)
+  assert(picker._custom_preview_ratio == 0.2, 'Maximizing lost divider ratio')
+  assert(picker:get_selection() == selected, 'Moving divider changed selection')
+  assert(picker:_get_prompt() == 'Short.java', 'Moving divider changed search text')
+  check_rows(picker)
+  vim.o.columns = 180
   actions.close(prompt)
 
   picker = open({ 'a.lua', 'src/b.lua' }, require('telescope.make_entry').gen_from_file { disable_devicons = true })
   custom.maximize_preview(picker.prompt_bufnr)
   assert(picker._custom_maximized_pane == nil, 'Picker without a preview entered preview mode')
+  custom.move_divider_left(picker.prompt_bufnr)
+  assert(picker._custom_preview_ratio == nil, 'Picker without a preview changed divider ratio')
   assert(picker._custom_path_width == #'src/b.lua', 'Short paths use an unnecessarily wide column')
   custom.maximize_results(picker.prompt_bufnr)
   actions.close(picker.prompt_bufnr)
@@ -261,7 +302,7 @@ local function check()
   assert(vim.wait(3000, function() return picker._custom_path_width ~= nil end), 'live_grep default did not align')
   check_rows(picker)
   actions.close(picker.prompt_bufnr)
-  print 'Telescope checks passed: alignment, truncation, UTF-8, grep locations, pane maximization, resize, resume, mode cycle, find_files, and live_grep'
+  print 'Telescope checks passed: alignment, truncation, UTF-8, grep locations, pane maximization, divider movement, resize, resume, mode cycle, find_files, and live_grep'
 end
 
 local ok, err = xpcall(check, debug.traceback)
