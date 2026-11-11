@@ -86,6 +86,28 @@ local function check()
   end
   actions.close(prompt)
 
+  local buffers = {}
+  for i, path in ipairs(paths) do
+    local bufnr = vim.api.nvim_create_buf(true, false)
+    vim.bo[bufnr].swapfile = false
+    vim.api.nvim_buf_set_lines(bufnr, 0, -1, false, vim.fn['repeat']({ '' }, 175))
+    buffers[i] = { bufnr = bufnr, flag = ' ', info = { name = path, hidden = 1, changed = 0, lnum = 175 } }
+  end
+  picker = open(buffers, require('telescope.make_entry').gen_from_buffer { bufnr_width = 2, disable_devicons = true })
+  for _, width in ipairs { 100, 85, 70, 55, 40 } do
+    vim.api.nvim_win_set_width(picker.results_win, width)
+    custom.align_results(picker)
+    for entry in picker.manager:iter() do
+      local text = display(picker, entry)
+      assert(text:match ':175$', 'Buffer line number disappeared')
+      assert(vim.fn.strdisplaywidth(text) + #picker.entry_prefix <= width, 'Buffer filename or line number is clipped at the right edge')
+      assert(text:find(entry.filename:match '([^/]+)$':sub(-12), 1, true), 'Buffer filename ending disappeared')
+    end
+    check_rows(picker)
+  end
+  actions.close(picker.prompt_bufnr)
+  for _, buffer in ipairs(buffers) do vim.api.nvim_buf_delete(buffer.bufnr, { force = true }) end
+
   local matches = {}
   local locations = { { 1, 1234 }, { 22, 33 }, { 333, 2 }, { 4444, 111 } }
   for i, path in ipairs(paths) do

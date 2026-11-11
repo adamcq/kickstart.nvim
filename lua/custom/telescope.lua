@@ -21,8 +21,10 @@ local function aligned_path(opts, path, reserve)
   local win = picker.results_win
   if not win or not vim.api.nvim_win_is_valid(win) then return display end
   local prefix = math.max(vim.fn.strdisplaywidth(picker.selection_caret), vim.fn.strdisplaywidth(picker.entry_prefix))
-  -- Allow two cells for a devicon and its separator, even without devicons.
-  local available = vim.api.nvim_win_get_width(win) - prefix - 2 - (reserve or 0)
+  -- Buffer entries supply their number, status, icon, and line-number widths.
+  -- Other entries reserve two cells for a devicon and its separator.
+  local overhead = reserve and (reserve + 2) or opts.__prefix or 2
+  local available = vim.api.nvim_win_get_width(win) - prefix - overhead
   local width = math.max(4, math.min(picker._custom_path_width or M.path_width, available))
   if vim.fn.strdisplaywidth(display) > width then
     -- Remove whole characters from the left, preserving UTF-8 and the suffix.
