@@ -17,12 +17,49 @@ function M.root(path)
     return repo
   end
   return vim.fs.root(path, { 'gradlew', 'settings.gradle', 'settings.gradle.kts', 'mvnw', 'pom.xml', 'build.gradle', 'build.gradle.kts', '.git' })
+    or (path:match '%.java$' and vim.fs.dirname(path) or nil)
 end
 
 function M.workspace_dir(root)
   root = vim.uv.fs_realpath(root) or root
   local name = root == continuum and 'graal-continuum' or (vim.fs.basename(root) .. '-' .. vim.fn.sha256(root):sub(1, 12))
   return vim.fs.joinpath(vim.fn.stdpath 'cache', 'jdtls', 'workspace', name)
+end
+
+function M.debug_project_name()
+  local client = vim.lsp.get_clients({ name = 'jdtls', bufnr = 0 })[1]
+  if not client then return '' end
+  -- Unmanaged folders use a generated Eclipse project name, not the folder name.
+  local projects = vim.fn.glob(M.workspace_dir(client.config.root_dir) .. '/*/.project', false, true)
+  if #projects ~= 1 then return '' end
+  return table.concat(vim.fn.readfile(projects[1]), '\n'):match '<name>([^<]+)</name>' or ''
+end
+
+function M.debug_source_paths()
+  local source = vim.uv.fs_realpath(vim.api.nvim_buf_get_name(0))
+  if not source or not source:match '%.java$' then return {} end
+  local directory = vim.fs.dirname(source)
+  local package
+  for _, line in ipairs(vim.api.nvim_buf_get_lines(0, 0, -1, false)) do
+    package = line:match '^%s*package%s+([%w_$.]+)%s*;'
+    if package then break end
+  end
+  if not package then return { directory } end
+  -- Accept Java identifiers only. Never interpret package text as a relative path.
+  if package:find('..', 1, true) or package:match '^%.' or package:match '%.$' then return { directory } end
+  for part in package:gmatch '[^.]+' do
+    if not part:match '^[%a_$][%w_$]*$' then return { directory } end
+  end
+  local package_path = package:gsub('%.', '/')
+  if directory:sub(-#package_path - 1) == '/' .. package_path then return { directory:sub(1, #directory - #package_path - 1) .. '/' } end
+  -- The Java adapter expects package directories, even for an externally built file.
+  -- Link the current source in the cache so the demo's original file stays in place.
+  local root = vim.fs.joinpath(vim.fn.stdpath 'cache', 'java-debug-sources', vim.fn.sha256(source):sub(1, 12))
+  local link = vim.fs.joinpath(root, package_path, vim.fs.basename(source))
+  vim.fn.mkdir(vim.fs.dirname(link), 'p')
+  if not vim.uv.fs_lstat(link) then assert(vim.uv.fs_symlink(source, link)) end
+  assert(vim.uv.fs_realpath(link) == source, 'Java debug source link points to a different file: ' .. link)
+  return { root }
 end
 
 local function resolve_jdk()
@@ -276,7 +313,12 @@ function M.setup()
       config.cmd = args
       return vim.lsp.rpc.start(args, dispatchers, { cwd = config.root_dir, env = config.cmd_env, detached = config.detached })
     end,
-    init_options = { extendedClientCapabilities = jdtls.extendedClientCapabilities },
+    init_options = {
+      extendedClientCapabilities = jdtls.extendedClientCapabilities,
+      -- Mason provides this stable link independently of the adapter's version.
+      -- nvim-jdtls registers the DAP adapter when this bundle loads in JDTLS.
+      bundles = vim.fn.glob(vim.fn.stdpath 'data' .. '/mason/share/java-debug-adapter/com.microsoft.java.debug.plugin.jar', false, true),
+    },
     handlers = {
       ['language/status'] = function(_, result, ctx)
         local client = vim.lsp.get_client_by_id(ctx.client_id)

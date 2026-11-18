@@ -149,7 +149,66 @@ keeps Conform's existing LSP fallback; organizing imports remains explicit.
 Annotations such as `FunctionalInterface` normally have no implementations;
 definitions and references should work. Micronaut injection through annotations,
 configuration, or generated beans is not necessarily an ordinary Java reference.
-Framework bean browsing, debugging, and test runners are outside this setup.
+Framework bean browsing and direct test runners are outside this setup.
+
+### Java debugging
+
+`nvim-dap` connects to the Java debug adapter through the existing JDTLS client.
+Mason installs `java-debug-adapter`. After the first installation, restart Neovim
+so JDTLS loads the adapter. If installation fails, run
+`:MasonInstall java-debug-adapter` and restart after installation completes.
+
+Open a Java source file. Wait for project import to finish. Place the cursor on
+an executable line and press `Space db` to set a breakpoint. Press `Space dc`
+to select a discovered main class and start debugging. Project-specific launch
+arguments and JVM attach configurations can use `.vscode/launch.json` or
+`require('dap').configurations.java`.
+
+For standalone Java files without project markers, JDTLS uses the containing
+folder as its root. Each folder has a separate workspace cache. Dependencies
+outside that folder still need an explicit build classpath. The attach preset
+reads the generated Eclipse project name so variable evaluation works in these
+folders. If the current file's package does not match its directory, the preset
+creates a source link under `~/.cache/nvim/java-debug-sources`. This lets the
+adapter find the current file without moving it.
+
+To debug an application started by a shell script, start its JVM with
+`-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=127.0.0.1:5005`.
+Open its Java source in Neovim. Set a breakpoint and press `Space dc`. Select
+`Attach to JVM (127.0.0.1:5005)`. The application waits for the debugger before
+it executes its main method. Compile with `javac -g` to include local variable
+names. For a script that invokes both `javac` and `java`, use:
+
+```sh
+JDK_JAVAC_OPTIONS=-g \
+JDK_JAVA_OPTIONS='-agentlib:jdwp=transport=dt_socket,server=y,suspend=y,address=127.0.0.1:5005' \
+  ./run.sh
+```
+
+`JDK_JAVA_OPTIONS` applies to the Java launcher. If the script starts several
+JVMs, pass the debugger option only to the application JVM instead.
+
+| Shortcut (normal mode) | Action |
+| --- | --- |
+| `Space db` | Toggle a breakpoint |
+| `Space dB` | Set a conditional breakpoint |
+| `Space dc` | Start or continue debugging |
+| `Space dn` | Step over |
+| `Space di` | Step into |
+| `Space do` | Step out |
+| `Space dt` | Stop debugging |
+| `Space dr` | Open the debug console |
+| `Space du` | Toggle debug panels |
+
+The panels show variables, watches, breakpoints, the call stack, and the console.
+They open when a debug session starts. They remain open after the session ends
+so its output stays visible. Press `Space du` to close them. Press `Space d` to
+see the shortcuts in which-key.
+
+This setup debugs JVM applications. Native executables need a native debugger.
+Direct JUnit discovery needs the separate `java-test` extension. Projects with
+annotation processors that require javac may need Gradle compilation and a JVM
+attach configuration instead of a launch through JDTLS.
 
 ### Cache and recovery
 

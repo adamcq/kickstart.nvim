@@ -966,10 +966,12 @@ do
   end
   vim.list_extend(ensure_installed, {
     -- You can add other tools here that you want Mason to install
+    'java-debug-adapter',
   })
 
   require('mason-tool-installer').setup { ensure_installed = ensure_installed }
 
+  require('custom.debug').setup()
   servers.jdtls = require('custom.java').setup()
 
   for name, server in pairs(servers) do
